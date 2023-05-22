@@ -32,7 +32,7 @@ To get started with a GUI:
 - install miniconda
 - create a conda env with python 3.7 and openjdk 8:
 
-conda env create -n myenv python=3.8 openjdk=8
+conda create -n myenv python=3.8 openjdk=8
 
 conda activate myenv
 
