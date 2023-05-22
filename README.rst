@@ -36,6 +36,8 @@ conda create -n myenv python=3.8 openjdk=8
 
 conda activate myenv
 
+pip install abba-python
+
 python
 
 >> from abba_python import abba
