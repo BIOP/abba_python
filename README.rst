@@ -28,9 +28,6 @@ With ABBA Python, you have access to the 3D mouse Allen Brain atlas, and the Wax
 
 ABBA Python allows to use DeepSlice (https://pypi.org/project/DeepSlice/) for automated registration of mouse coronal sections (rat not implemented yet).
 
-ON WINDOWS: YOU NEED TO INSTALL MAVEN SEPARATELY (JUST UNZIP MAVEN AND SET THE PATH ENV VARIABLE, NO NEED TO SET THE JAVA PATH)
-See https://github.com/conda-forge/maven-feedstock/issues/23
-
 To get started with a GUI:
 - install miniconda
 - create a conda env with python 3.7 and openjdk 8:
