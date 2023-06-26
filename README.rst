@@ -24,7 +24,7 @@ ABBA in short
 
 Aligning Big Brains & Atlases or ABBA for short, allows to register thin serial sections to several atlases, in coronal, sagittal and horizontal orientations.
 
-With ABBA Python, you have access to the 3D mouse Allen Brain atlas, and the Waxholm Space Atlas of the Sprague Dawley Rat Brain and all other BrainGlobe (https://docs.brainglobe.info/) atlases.
+With ABBA Python, you have access to the 3D mouse Allen Brain atlas, and the Waxholm Space Atlas of the Sprague Dawley Rat Brain and all other `BrainGlobe atlases <https://brainglobe.info/documentation/bg-atlasapi/usage/atlas-details.html>`_.
 
 ABBA Python allows to use DeepSlice (https://pypi.org/project/DeepSlice/) for automated registration of mouse coronal sections (rat not implemented yet).
 
