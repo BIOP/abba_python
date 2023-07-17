@@ -24,7 +24,6 @@ To get started with a GUI:
 - install miniconda
 - create a conda env with python 3.7 and openjdk 8:
 
-<<<<<<< HEAD:README.md
 ```
 conda create -c conda-forge -n myenv python=3.7 openjdk=8
 
