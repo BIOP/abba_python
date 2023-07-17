@@ -14,7 +14,7 @@ Aligning Big Brains and Atlases, controlled from Python.
 
 Aligning Big Brains & Atlases or ABBA for short, allows to register thin serial sections to several atlases, in coronal, sagittal and horizontal orientations.
 
-With ABBA Python, you have access to the 3D mouse Allen Brain atlas, and the Waxholm Space Atlas of the Sprague Dawley Rat Brain and all [other BrainGlobe atlases](https://docs.brainglobe.info/).
+With ABBA Python, you have access to the 3D mouse Allen Brain atlas, and the Waxholm Space Atlas of the Sprague Dawley Rat Brain and all [other BrainGlobe atlases](https://brainglobe.info/documentation/bg-atlasapi/usage/atlas-details.html).
 
 ABBA Python allows to use [DeepSlice](https://pypi.org/project/DeepSlice/) for automated registration of mouse coronal sections (rat not implemented yet).
 
@@ -24,6 +24,7 @@ To get started with a GUI:
 - install miniconda
 - create a conda env with python 3.7 and openjdk 8:
 
+<<<<<<< HEAD:README.md
 ```
 conda create -c conda-forge -n myenv python=3.7 openjdk=8
 
@@ -50,7 +51,8 @@ Openjdk version can work for version above 8, but it has been less used, so ther
 
 # Credits
 
-This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypackage`_ project template.
+This package was created with Cookiecutter and the `audreyr/cookiecutter-pypackage` project template.
 
-.. _Cookiecutter: https://github.com/audreyr/cookiecutter
-.. _`audreyr/cookiecutter-pypackage`: https://github.com/audreyr/cookiecutter-pypackage
+[Cookiecutter](https://github.com/audreyr/cookiecutter)
+
+[audreyr/cookiecutter-pypackage](https://github.com/audreyr/cookiecutter-pypackage)
