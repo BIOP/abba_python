@@ -68,9 +68,9 @@ def get_java_dependencies():
     these jars should be available in https://maven.scijava.org/
     :return:
     """
-    imagej_core_dep = 'net.imagej:imagej:2.9.0'
-    imagej_legacy_dep = 'net.imagej:imagej-legacy:0.39.3'
-    abba_dep = 'ch.epfl.biop:ImageToAtlasRegister:0.5.4'
+    imagej_core_dep = 'net.imagej:imagej:2.14.0'
+    imagej_legacy_dep = 'net.imagej:imagej-legacy:1.2.0'
+    abba_dep = 'ch.epfl.biop:ImageToAtlasRegister:0.6.0'
     return [imagej_core_dep, imagej_legacy_dep, abba_dep]
 
 
@@ -289,15 +289,17 @@ class Abba:
             if atlas_name == 'Adult Mouse Brain - Allen Brain Atlas V3':
                 atlas_name = 'Adult Mouse Brain - Allen Brain Atlas V3p1'
             if atlas_name == 'Rat - Waxholm Sprague Dawley V4':
-                atlas_name = 'Rat - Waxholm Sprague Dawley V4p1'
+                atlas_name = 'Rat - Waxholm Sprague Dawley V4p2'
+            if atlas_name == 'Rat - Waxholm Sprague Dawley V4p1':
+                atlas_name = 'Rat - Waxholm Sprague Dawley V4p2'
             if atlas_name == 'Adult Mouse Brain - Allen Brain Atlas V3p1':
                 AllenBrainAdultMouseAtlasCCF2017Command = jimport(
                     'ch.epfl.biop.atlas.mouse.allen.ccfv3p1.command.AllenBrainAdultMouseAtlasCCF2017v3p1Command')
                 atlas = ij.command().run(AllenBrainAdultMouseAtlasCCF2017Command, True).get().getOutput("ba")
                 Abba.opened_atlases[atlas_name] = atlas
-            elif atlas_name == 'Rat - Waxholm Sprague Dawley V4p1':
+            elif atlas_name == 'Rat - Waxholm Sprague Dawley V4p2':
                 WaxholmSpragueDawleyRatV4Command = jimport(
-                    'ch.epfl.biop.atlas.rat.waxholm.spraguedawley.v4p1.command.WaxholmSpragueDawleyRatV4p1Command')
+                    'ch.epfl.biop.atlas.rat.waxholm.spraguedawley.v4p2.command.WaxholmSpragueDawleyRatV4p2Command')
                 atlas = ij.command().run(WaxholmSpragueDawleyRatV4Command, True).get().getOutput("ba")
                 Abba.opened_atlases[atlas_name] = atlas
             else:
