@@ -112,3 +112,5 @@ ENV/
 /example_notebooks/images/
 /example_notebooks/.ipynb_checkpoints/
 /example_notebooks/temp/
+/abba_python-0.2.0/
+/example_notebooks/qupath_project/
