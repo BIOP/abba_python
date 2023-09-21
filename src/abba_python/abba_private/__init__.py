@@ -5,4 +5,4 @@ __version__ = "0.1.0-SNAPSHOT"
 # Used internally by the Abba package
 
 # from abba_python.abba_private.AbbaAtlasNode import AbbaAtlasNode
-from . import AbbaAtlas, AbbaMap, AbbaOntology, DeepSliceProcessor
+from . import AbbaAtlas, AbbaMap, AbbaOntology

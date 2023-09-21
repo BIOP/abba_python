@@ -2,7 +2,6 @@
 
 # Core
 import os
-import tempfile
 
 # BrainGlobe
 from bg_atlasapi import BrainGlobeAtlas
@@ -22,7 +21,6 @@ def start_imagej(headless: bool = False):
     if not headless:
         mode = "interactive"
     ij = imagej.init(get_java_dependencies(), mode=mode)
-    enable_python_hooks(ij)
     add_brainglobe_atlases(ij)
 
     from scyjava import jimport
@@ -31,8 +29,8 @@ def start_imagej(headless: bool = False):
     # loci.common.DebugTools.enableLogging("OFF");
     DebugTools = jimport('loci.common.DebugTools')
     # DebugTools.enableLogging('OFF')
-    DebugTools.enableLogging("INFO");
-    # DebugTools.enableLogging("DEBUG");
+    DebugTools.enableLogging("INFO")
+    # DebugTools.enableLogging("DEBUG")
 
     import platform
     if platform.system() == 'Windows':
@@ -69,8 +67,8 @@ def get_java_dependencies():
     :return:
     """
     imagej_core_dep = 'net.imagej:imagej:2.14.0'
-    imagej_legacy_dep = 'net.imagej:imagej-legacy:1.2.0'
-    abba_dep = 'ch.epfl.biop:ImageToAtlasRegister:0.6.0'
+    imagej_legacy_dep = 'net.imagej:imagej-legacy:1.2.1'
+    abba_dep = 'ch.epfl.biop:ImageToAtlasRegister:0.7.1'
     return [imagej_core_dep, imagej_legacy_dep, abba_dep]
 
 
@@ -120,117 +118,6 @@ def add_brainglobe_atlases(ij):
         AtlasChooserCommand.registerAtlas(atlas_name, AtlasSupplier(atlas_name, ij))
 
 
-def enable_python_hooks(ij):
-    from jpype import JImplements, JOverride
-    PyPostprocessor = jimport('org.scijava.processor.PyPostprocessor')
-    Supplier = jimport('java.util.function.Supplier')
-    Consumer = jimport('java.util.function.Consumer')
-    import logging
-
-    logger = logging.getLogger('ABBAPostprocessor')
-
-    @JImplements(Consumer)
-    class IPyWidgetCommandPostProcessor(object):
-
-        @JOverride
-        def accept(self, module):
-            self.module = module
-            outputs = module.getOutputs()
-            logger.debug('ABBA post-processing, module ' + str(module))
-            print('ABBA post-processing, module ' + str(module))
-            for output_key in outputs.keySet():
-                if not module.isOutputResolved(output_key):
-                    logger.debug('Unresolved output: ' + str(output_key))
-                    print('Unresolved output: ' + str(output_key))
-                    if str(module.getInfo().getOutput(
-                        output_key).getType()) == 'class ch.epfl.biop.atlas.aligner.gui.bdv.BdvMultislicePositionerView':
-                        print('MultiSlicePositionerView found')
-                        view = module.getOutputs().get(output_key)
-                        print(str(view.msp.getAtlas().getName()))
-                        if str(view.msp.getAtlas().getName()) == 'Adult Mouse Brain - Allen Brain Atlas V3p1':
-                            print('Adult Mouse Brain - Allen Brain Atlas V3p1 detected, installing DeepSlice module')
-                            BdvScijavaHelper = jimport('sc.fiji.bdvpg.scijava.BdvScijavaHelper')
-                            from jpype import JImplements, JOverride
-                            Runnable = jimport('java.lang.Runnable')
-
-                            class DSPlaceHolder(object):
-                                def __init__(self, ij):
-                                    self.temp_folder = prepare_deepslice_temp_folder(self)
-                                    self.ij = ij
-
-                            @JImplements(Runnable)
-                            class ExecuteDeepSlicePython(object):
-
-                                def __init__(self, dsp):
-                                    self.dsp = dsp
-
-                                @JOverride
-                                def run(self):
-                                    RegisterSlicesDeepSliceCommand = jimport(
-                                        'ch.epfl.biop.atlas.aligner.command.RegisterSlicesDeepSliceCommand')
-                                    # Any missing input parameter will lead to a popup window asking the missing argument to the user
-                                    self.dsp.ij.command().run(RegisterSlicesDeepSliceCommand, True,
-                                                              "image_name_prefix", JString('Section'),
-                                                              "mp", view.msp,
-                                                              "deepSliceProcessor", self.dsp._run_deep_slice,
-                                                              "dataset_folder", JString(self.dsp.temp_folder)
-                                                              )
-
-                            dsplaceholder = DSPlaceHolder(ij)
-                            edsp = ExecuteDeepSlicePython(dsplaceholder)
-                            bdv_view = view.getBdvh()
-
-                            BdvScijavaHelper.addActionToBdvHandleMenu(bdv_view,
-                                                                      "Align>ABBA - DeepSlice Registration (Python)", 0,
-                                                                      edsp)
-
-
-    @JImplements(Supplier)
-    class IPyWidgetCommandPreprocessorSupplier(object):
-        @JOverride
-        def get(self):
-            return IPyWidgetCommandPostProcessor()
-
-    PyPostprocessor.register(IPyWidgetCommandPreprocessorSupplier())
-    print('ABBA Python hooks enabled')
-
-
-def prepare_deepslice_temp_folder(self):
-    if not hasattr(self, '_run_deep_slice'):
-        try:
-            from abba_python.abba_private.DeepSliceProcessor import \
-                DeepSliceProcessor  # delayed import because the jvm should be set first
-        except:
-            try:
-                from .abba_private.DeepSliceProcessor import \
-                    DeepSliceProcessor  # delayed import because the jvm should be set first
-            except:
-                print("Could not import DeepSliceProcessor because the dev do not understand python modules and submodules.")
-
-        self._run_deep_slice = DeepSliceProcessor()
-
-    # TODO : fix potential multiple running instance issues
-    temp_folder = tempfile.gettempdir() + '/temp/deepslice/'
-
-    # make sure that the folder exists
-    if not os.path.exists(temp_folder):
-        os.makedirs(temp_folder)
-
-    # clean folder : remove all previous files
-    for filename in os.listdir(temp_folder):
-        file_path = os.path.join(temp_folder, filename)
-        try:
-            if os.path.isfile(file_path) or os.path.islink(file_path):
-                os.unlink(file_path)
-            # elif os.path.isdir(file_path):
-            #    shutil.rmtree(file_path)
-        except Exception as e:
-            print('Failed to delete %s. Reason: %s' % (file_path, e))
-
-    # print('Temp folder = '+str(temp_folder))
-    return temp_folder
-
-
 class Abba:
     """Abba object which can be used to register sections to a BrainGlobe atlas object
     Parameters
@@ -263,16 +150,11 @@ class Abba:
         atlas_name: str = 'Adult Mouse Brain - Allen Brain Atlas V3',
         ij=None,
         slicing_mode: str = 'coronal',  # or sagittal or horizontal
-        headless: bool = False,
-        enable_jupyter_ui: bool = False
+        headless: bool = False
     ):
         if ij is None:
             if headless:
                 ij = imagej.init(get_java_dependencies())
-                if enable_jupyter_ui:
-                    # below : experimental UI, uses ipywidgets instead of ImageJ's swing UI (very partial functionality)
-                    from src.abba_python.scijava_python_command import enable_jupyter_ui
-                    enable_jupyter_ui()
             else:
                 ij = imagej.init(get_java_dependencies(), mode='interactive')
                 ij.ui().showUI()
@@ -313,8 +195,7 @@ class Abba:
                         from .abba_private.AbbaAtlas import \
                             AbbaAtlas  # delayed import because the jvm should be set first
                     except:
-                        print(
-                            "Could not import DeepSliceProcessor because the dev do not understand python modules and submodules.")
+                        print("Could not import AbbaAtlas")
 
                 # initialized
                 atlas = AbbaAtlas(bg_atlas, ij)
@@ -359,83 +240,12 @@ class Abba:
             SerializableBdvOptions = jimport('sc.fiji.bdvpg.bdv.supplier.SerializableBdvOptions')
             bdvh = DefaultBdvSupplier(SerializableBdvOptions()).get()
             self.bdv_view = BdvMultislicePositionerView(self.mp, bdvh)
-            if self.atlas_name == 'Adult Mouse Brain - Allen Brain Atlas V3p1':
-                if self.slicing_mode == 'coronal':
-                    self.install_deepslice_bdv_ui()
-                    pass
         else:
             # TODO: make sure it is visible
             pass
 
-    def install_deepslice_bdv_ui(self):
-
-        BdvScijavaHelper = jimport('sc.fiji.bdvpg.scijava.BdvScijavaHelper')
-
-        from jpype import JImplements, JOverride
-
-        Runnable = jimport('java.lang.Runnable')
-
-        @JImplements(Runnable)
-        class ExecuteDeepSlicePython(object):
-
-            def __init__(self, abba):
-                self.abba = abba
-
-            @JOverride
-            def run(self):
-                temp_folder = prepare_deepslice_temp_folder(self)
-                RegisterSlicesDeepSliceCommand = jimport(
-                    'ch.epfl.biop.atlas.aligner.command.RegisterSlicesDeepSliceCommand')
-                # Any missing input parameter will lead to a popup window asking the missing argument to the user
-                self.abba.ij.command().run(RegisterSlicesDeepSliceCommand, True,
-                                           "image_name_prefix", JString('Section'),
-                                           "mp", self.abba.mp,
-                                           "deepSliceProcessor", self.abba._run_deep_slice,
-                                           "dataset_folder", JString(temp_folder)
-                                           )
-
-        BdvScijavaHelper.addActionToBdvHandleMenu(self.bdv_view.getBdvh(),
-                                                  "Align>ABBA - DeepSlice Registration (Python)", 0,
-                                                  ExecuteDeepSlicePython(self))
-
     def get_bdv_view(self):
         return self.bdv_view
-
-    # def prepare_deepslice_temp_folder(self):  # TODO : remove
-    #
-    #     if not hasattr(self, '_run_deep_slice'):
-    #         try:
-    #             from abba_python.abba_private.DeepSliceProcessor import \
-    #                 DeepSliceProcessor  # delayed import because the jvm should be set first
-    #         except:
-    #             try:
-    #                 from .abba_private.DeepSliceProcessor import \
-    #                     DeepSliceProcessor  # delayed import because the jvm should be set first
-    #             except:
-    #                 print(
-    #                     "Could not import DeepSliceProcessor because the dev do not understand python modules and submodules.")
-    #
-    #     self._run_deep_slice = DeepSliceProcessor()
-    #
-    #     # TODO : fix potential multiple running instance issues
-    #     temp_folder = tempfile.gettempdir() + '/temp/deepslice/'
-    #
-    #     # make sure that the folder exists
-    #     if not os.path.exists(temp_folder):
-    #         os.makedirs(temp_folder)
-    #
-    #     # clean folder : remove all previous files
-    #     for filename in os.listdir(temp_folder):
-    #         file_path = os.path.join(temp_folder, filename)
-    #         try:
-    #             if os.path.isfile(file_path) or os.path.islink(file_path):
-    #                 os.unlink(file_path)
-    #             # elif os.path.isdir(file_path):
-    #             #    shutil.rmtree(file_path)
-    #         except Exception as e:
-    #             print('Failed to delete %s. Reason: %s' % (file_path, e))
-    #     # print('Temp folder = '+str(temp_folder))
-    #     return temp_folder
 
     # ------------------------ IMPORT
     def import_from_files(self, filepaths, z_location=0, z_increment=0.02, split_rgb=False):
@@ -496,38 +306,36 @@ class Abba:
             self.mp.selectSlice(self.mp.getSlices().get(index))  # select the last slice
 
     # ------------------------ REGISTRATION
-    def register_slices_deepslice(self,
-                                  channels,
-                                  allow_slicing_angle_change=True,
-                                  allow_change_slicing_position=True,
-                                  maintain_slices_order=True,
-                                  affine_transform=True
-                                  ):
-        # TODO : add option  to rescale brightness/contrast in parameters
-        if not self.atlas_name.startswith('Adult Mouse Brain - Allen Brain Atlas V'):
-            print('Deep Slice only support the Allen Brain Atlas CCFv3 in coronal slicing mode')
-            return
 
-        if not self.slicing_mode == 'coronal':
-            print('Deep Slice only support the Allen Brain Atlas CCFv3 in coronal slicing mode')
-            return
+    def register_slices_deep_slice(self,
+                                   affine_transform: bool,
+                                   allow_change_slicing_position: bool,
+                                   allow_slicing_angle_change: bool,
+                                   channels: str,
+                                   maintain_slices_order: bool,
+                                   model: str,
+                                   run_mode: str):
+        """
 
-        temp_folder = prepare_deepslice_temp_folder(self)
-
+        @param affine_transform:
+        @param allow_change_slicing_position:
+        @param allow_slicing_angle_change:
+        @param channels:
+        @param maintain_slices_order:
+        @param model: rat or mouse
+        @param run_mode:
+        @return:
+        """
         RegisterSlicesDeepSliceCommand = jimport('ch.epfl.biop.atlas.aligner.command.RegisterSlicesDeepSliceCommand')
-
-        # Any missing input parameter will lead to a popup window asking the missing argument to the user
         return self.ij.command().run(RegisterSlicesDeepSliceCommand, True,
-                                     "channels", JString(','.join(map(str, channels))),
-                                     "image_name_prefix", JString('Section'),
-                                     "mp", self.mp,
-                                     "allow_slicing_angle_change", allow_slicing_angle_change,
-                                     "allow_change_slicing_position", allow_change_slicing_position,
-                                     "maintain_slices_order", maintain_slices_order,
-                                     "affine_transform", affine_transform,
-                                     "deepSliceProcessor", self._run_deep_slice,
-                                     "dataset_folder", JString(temp_folder)
-                                     ).get()
+                                     'mp', self.mp,
+                                     'affine_transform', affine_transform,
+                                     'allow_change_slicing_position', allow_change_slicing_position,
+                                     'allow_slicing_angle_change', allow_slicing_angle_change,
+                                     'channels', channels,
+                                     'maintain_slices_order', maintain_slices_order,
+                                     'model', model,
+                                     'run_mode', run_mode).get()
 
     def change_display_settings(self, channel_index: int, range_min: float, range_max: float):
         for abba_slice in self.mp.getSlices():

@@ -10,7 +10,7 @@ with open('README.md') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['numpy', 'pandas', 'pyimagej', 'bg-atlasapi', 'DeepSlice==1.1.2']
+requirements = ['numpy', 'pandas', 'pyimagej', 'bg-atlasapi']
 
 test_requirements = [ ]
 
@@ -39,7 +39,7 @@ setup(
     packages=find_packages(include=['abba_python', 'abba_python.*']),
     test_suite='tests',
     tests_require=test_requirements,
-    url='https://github.com/nicoKiaru/abba_python',
+    url='https://github.com/BIOP/abba_python',
     version='0.3.0',
     zip_safe=False,
 )
