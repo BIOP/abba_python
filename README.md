@@ -18,7 +18,7 @@ With ABBA Python, you can control ABBA API from python, and get some additional 
 
 
 > [!WARNING]
-> Due to some threading issues, it is possible that the GUI will not work with MacOSX
+> Due to some threading issues, the GUI does not work with MacOSX
 
 # Getting started
 
