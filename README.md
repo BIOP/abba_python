@@ -26,7 +26,7 @@ With ABBA Python, you can control ABBA API from python, and get some additional 
 2. Create a conda environment with Python 3.10, OpenJDK 8 and maven and activate it
 3. Install abba_python
 ```
-conda create -c conda-forge -n abba-env python=3.10 openjdk=8 maven
+conda create -c conda-forge -n abba-env python=3.10 openjdk=8 pip maven
 
 conda activate abba-env
 
