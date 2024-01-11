@@ -68,7 +68,7 @@ def get_java_dependencies():
     """
     imagej_core_dep = 'net.imagej:imagej:2.14.0'
     imagej_legacy_dep = 'net.imagej:imagej-legacy:1.2.1'
-    abba_dep = 'ch.epfl.biop:ImageToAtlasRegister:0.7.2'
+    abba_dep = 'ch.epfl.biop:ImageToAtlasRegister:0.7.9'
     return [imagej_core_dep, imagej_legacy_dep, abba_dep]
 
 

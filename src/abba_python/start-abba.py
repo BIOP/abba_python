@@ -1,24 +1,26 @@
 # core dependencies
 import time
-
-from abba import add_brainglobe_atlases
+# from abba_python import abba # works in CLI
+# from abba_python.abba import add_brainglobe_atlases # works in CLI
 # in order to wait for a jvm shutdown
 import jpype
 import imagej
 
 import os
 
+import abba
+
 # THIS FILE SETS MANY PATHS EXPLICITLY WHEN ABBA IS INSTALLED FROM THE INSTALLER!
 # IF YOU WANT TO RUN ABBA FROM PYTHON, TRY run-abba.py first!
 
 if __name__ == '__main__':
     os.path.dirname(os.getcwd())
-    # In ABBA PYthon, Fiji.app is in the parent directory of this script
-    fiji_app_path = str(os.path.join(os.path.dirname(os.getcwd()), 'Fiji.app'))
-    ij = imagej.init(fiji_app_path, mode="interactive")
 
-    ij.ui().showUI()
-    add_brainglobe_atlases(ij)
+    # In ABBA PYthon, Fiji.app is in the parent directory of this script
+    # fiji_app_path = str(os.path.join(os.path.dirname(os.getcwd()), 'Fiji.app'))
+    ij = imagej.init(abba.get_java_dependencies(), mode="interactive")
+
+    abba.add_brainglobe_atlases(ij)
 
     # Set Elastix Path:
     # File ch.epfl.biop.wrappers.elastix.Elastix exePath
@@ -33,8 +35,16 @@ if __name__ == '__main__':
     DebugTools = jimport('loci.common.DebugTools')
     File = jimport('java.io.File')
     # DebugTools.enableLogging('OFF')
-    DebugTools.enableLogging("INFO");
+    # DebugTools.enableLogging("INFO");
     # DebugTools.enableLogging("DEBUG");
+
+    # Sets DeepSlice env path
+
+    deepslice_env_path = str(os.path.join(os.path.dirname(os.getcwd()), 'envs', 'deepslice'))
+    deepslice_version = JString(str('1.1.5'))
+    DeepSlice = jimport('ch.epfl.biop.wrappers.deepslice.DeepSlice')
+    DeepSlice.setEnvDirPath(File(deepslice_env_path))
+    DeepSlice.setVersion(deepslice_version)  # not autodetected. Do not matter for 1.1.5, but may matter later
 
     import platform
     if platform.system() == 'Windows':
@@ -65,10 +75,15 @@ if __name__ == '__main__':
             print('ERROR! Could not set ABBA Atlas cache dir')
             # directory already exists ?
             pass
+
+        # TODO: Set DeepSlice conda env
     else:
         print('ERROR! '+platform.system()+' OS not supported yet.')
 
     # --
+
+
+    ij.ui().showUI() # add at the end ?
 
     # Wait for the JVM to shut down
     while jpype.isJVMStarted():
