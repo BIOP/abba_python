@@ -18,17 +18,17 @@ With ABBA Python, you can control ABBA API from python, and get some additional 
 
 
 > [!WARNING]
-> Due to some threading issues, it is possible that the GUI will not work with MacOSX
+> Due to some threading issues, the GUI does not work with MacOSX
 
 # Getting started
 
 1. Install [miniconda](https://docs.conda.io/projects/miniconda/en/latest/miniconda-install.html) or [miniforge](https://github.com/conda-forge/miniforge).
-2. Create a conda environment with OpenJDK 8 and activate it
+2. Create a conda environment with Python 3.8, pyimagej, OpenJDK 8 and maven and activate it
 3. Install abba_python
 ```
-conda create -c conda-forge -n myenv openjdk=8
+mamba create -c conda-forge -n abba-env python=3.8 openjdk=8 pip maven pyimagej
 
-conda activate myenv
+conda activate abba-env
 
 pip install abba_python
 ```
@@ -76,8 +76,9 @@ In Sept 2023, this was working:
 ```
 conda create -n deepslice python=3.7
 conda activate deepslice
-(maybe?) conda install pip
+conda install pip
 pip install DeepSlice==1.1.5
+pip install urllib3==1.26.6 # see https://github.com/PolarBean/DeepSlice/issues/46
 ```
 
 You also need to make conda available at the system level:
