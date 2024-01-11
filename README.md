@@ -76,7 +76,8 @@ In Sept 2023, this was working:
 ```
 conda create -n deepslice python=3.7
 conda activate deepslice
-(maybe?) conda install pip
+conda install pip
+pip install urllib3==1.26.6 # see https://github.com/PolarBean/DeepSlice/issues/46
 pip install DeepSlice==1.1.5
 ```
 
