@@ -98,7 +98,7 @@ def add_brainglobe_atlases(ij):
         @JOverride
         def get(self):
             bg_atlas = BrainGlobeAtlas(self.atlas_name)
-            from abba_private.abba_atlas import AbbaAtlas # but wth ????
+            from abba_private.abba_atlas import AbbaAtlas  # but wth ????
             print(bg_atlas)
             current_atlas = AbbaAtlas(bg_atlas, self.ij)
             current_atlas.initialize(None, None)
@@ -668,6 +668,22 @@ class Abba:
                                      'image', image,
                                      'slice_axis_mm', slice_axis_mm).get()
 
+    def import_slice_from_sources(self,
+                                  slice_axis_mm: float,
+                                  sources):
+        """
+        Import a list of sources as a slice into ABBA
+
+        Parameters:
+        slice_axis_mm (float): Initial axis position (0 = front, mm units)
+        sources :
+        """
+        ImportSliceFromSourcesCommand = jimport('ch.epfl.biop.atlas.aligner.command.ImportSliceFromSourcesCommand')
+        return self.ij.command().run(ImportSliceFromSourcesCommand, True,
+                                     'mp', self.mp,
+                                     'slice_axis_mm', slice_axis_mm,
+                                     'sources', sources).get()
+
     def import_slices_from_files(self,
                                  datasetname: str,
                                  files,
@@ -779,36 +795,74 @@ class Abba:
                                      'channel_atlas', channel_atlas,
                                      'channel_slice', channel_slice).get()
 
-    def register_slices_deepslice(self,
-                                  affine_transform: bool,
-                                  allow_change_slicing_position: bool,
-                                  allow_slicing_angle_change: bool,
-                                  channels: str,
-                                  maintain_slices_order: bool,
-                                  model: str,
-                                  run_mode: str):
+    def register_slices_copy_and_apply(self,
+                                       model_slice_index: int,
+                                       skip_pre_transform: bool):
         """
-        Uses Deepslice Web interface for affine in plane and axial registration of selected slices
+        Copy the registration sequence of a slice and apply it to selected slices
 
         Parameters:
-        affine_transform (bool): Affine transform in plane
-        allow_change_slicing_position (bool): Allow change of position along the slicing axis
-        allow_slicing_angle_change (bool): Allow change of atlas slicing angle
-        channels : Slices channels, 0-based
-        maintain_slices_order (bool): Maintain the rank of the slices
-        model (str): ('mouse', 'rat') Mouse or Rat ?
-        run_mode (str): ('local', 'web') Local Conda Env or Web ?
+        model_slice_index (int): Index of the slice registrations you'd like to copy
+        skip_pre_transform (bool): Tick if you want to skip the pre-transform (probably not)
         """
-        RegisterSlicesDeepSliceCommand = jimport('ch.epfl.biop.atlas.aligner.command.RegisterSlicesDeepSliceCommand')
-        return self.ij.command().run(RegisterSlicesDeepSliceCommand, True,
+        RegisterSlicesCopyAndApplyCommand = jimport(
+            'ch.epfl.biop.atlas.aligner.command.RegisterSlicesCopyAndApplyCommand')
+        return self.ij.command().run(RegisterSlicesCopyAndApplyCommand, True,
                                      'mp', self.mp,
-                                     'affine_transform', affine_transform,
-                                     'allow_change_slicing_position', allow_change_slicing_position,
+                                     'model_slice_index', model_slice_index,
+                                     'skip_pre_transform', skip_pre_transform).get()
+
+    def register_slices_deepslice_local(self,
+                                        allow_slicing_angle_change: bool,
+                                        channels: str,
+                                        ensemble: bool,
+                                        model: str,
+                                        post_processing: str,
+                                        slices_spacing_micrometer: float):
+        """
+        Uses Deepslice for affine in plane and axial registration of selected slices
+
+        Parameters:
+        allow_slicing_angle_change (bool): Allow change of atlas slicing angle
+        channels (str): Slices channels, 0-based, comma separated, '*' for all channels
+        ensemble (bool): Average of several models (slower)
+        model (str): ('mouse', 'rat') Mouse or Rat ?
+        post_processing (str):
+        slices_spacing_micrometer (float): Spacing (micrometer), used only when 'Keep order + set spacing' is selected
+        """
+        RegisterSlicesDeepSliceLocalCommand = jimport(
+            'ch.epfl.biop.atlas.aligner.command.RegisterSlicesDeepSliceLocalCommand')
+        return self.ij.command().run(RegisterSlicesDeepSliceLocalCommand, True,
+                                     'mp', self.mp,
                                      'allow_slicing_angle_change', allow_slicing_angle_change,
-                                     'channels', JString(','.join(map(str, channels))),
+                                     'channels', channels,
+                                     'ensemble', ensemble,
+                                     'model', model,
+                                     'post_processing', post_processing,
+                                     'slices_spacing_micrometer', slices_spacing_micrometer).get()
+
+    def register_slices_deepslice_web(self,
+                                      allow_slicing_angle_change: bool,
+                                      channels: str,
+                                      maintain_slices_order: bool,
+                                      model: str):
+        """
+        Uses Deepslice for affine in plane and axial registration of selected slices
+
+        Parameters:
+        allow_slicing_angle_change (bool): Allow change of atlas slicing angle
+        channels (str): Slices channels, 0-based, comma separated, '*' for all channels
+        maintain_slices_order (bool): Keep slices order
+        model (str): ('mouse', 'rat') Mouse or Rat ?
+        """
+        RegisterSlicesDeepSliceWebCommand = jimport(
+            'ch.epfl.biop.atlas.aligner.command.RegisterSlicesDeepSliceWebCommand')
+        return self.ij.command().run(RegisterSlicesDeepSliceWebCommand, True,
+                                     'mp', self.mp,
+                                     'allow_slicing_angle_change', allow_slicing_angle_change,
+                                     'channels', channels,
                                      'maintain_slices_order', maintain_slices_order,
-                                     'model', JString(model),
-                                     'run_mode', JString(run_mode)).get()
+                                     'model', model).get()
 
     def register_slices_edit_last(self,
                                   atlas_channels_csv: str,
@@ -856,7 +910,6 @@ class Abba:
                                      'show_imageplus_registration_result', show_imageplus_registration_result).get()
 
     def register_slices_elastix_spline(self,
-
                                        channels_atlas_csv: str,
                                        channels_slice_csv: str,
                                        nb_control_points_x: int,
