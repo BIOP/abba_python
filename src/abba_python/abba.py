@@ -15,6 +15,17 @@ import imagej
 # JPype
 from jpype.types import JString, JArray
 
+def get_java_dependencies():
+    """
+    Returns the jar files that need to be included into the classpath
+    of an imagej object in order to have a functional ABBA app
+    these jars should be available in https://maven.scijava.org/
+    :return:
+    """
+    imagej_core_dep = 'net.imagej:imagej:2.14.0'
+    imagej_legacy_dep = 'net.imagej:imagej-legacy:1.2.1'
+    abba_dep = 'ch.epfl.biop:ImageToAtlasRegister:0.7.9'
+    return [imagej_core_dep, imagej_legacy_dep, abba_dep]
 
 def start_imagej(headless: bool = False):
     mode = "headless"
@@ -58,20 +69,6 @@ def start_imagej(headless: bool = False):
     if not headless:
         ij.ui().showUI()
 
-
-def get_java_dependencies():
-    """
-    Returns the jar files that need to be included into the classpath
-    of an imagej object in order to have a functional ABBA app
-    these jars should be available in https://maven.scijava.org/
-    :return:
-    """
-    imagej_core_dep = 'net.imagej:imagej:2.14.0'
-    imagej_legacy_dep = 'net.imagej:imagej-legacy:1.2.1'
-    abba_dep = 'ch.epfl.biop:ImageToAtlasRegister:0.7.9'
-    return [imagej_core_dep, imagej_legacy_dep, abba_dep]
-
-
 def add_brainglobe_atlases(ij):
     # TODO : check connection available or not
     try:
@@ -85,14 +82,6 @@ def add_brainglobe_atlases(ij):
             available_atlases[atlas] = get_local_atlas_version(atlas)
 
     AtlasChooserCommand = jimport('ch.epfl.biop.atlas.scijava.AtlasChooserCommand')
-    try:
-        from abba_python.abba_private.AbbaAtlas import AbbaAtlas  # delayed import because the jvm should be set first
-    except:
-        try:
-            from .abba_private.AbbaAtlas import \
-                AbbaAtlas  # delayed import because the jvm should be set first
-        except:
-            print("Could not import AbbaAtlas because the dev do not understand python modules and submodules.")
 
     from jpype import JImplements, JOverride
     Supplier = jimport('java.util.function.Supplier')
@@ -109,6 +98,8 @@ def add_brainglobe_atlases(ij):
         @JOverride
         def get(self):
             bg_atlas = BrainGlobeAtlas(self.atlas_name)
+            from abba_private.abba_atlas import AbbaAtlas # but wth ????
+            print(bg_atlas)
             current_atlas = AbbaAtlas(bg_atlas, self.ij)
             current_atlas.initialize(None, None)
             Abba.opened_atlases[self.atlas_name] = current_atlas
@@ -187,19 +178,9 @@ class Abba:
                 Abba.opened_atlases[atlas_name] = atlas
             else:
                 bg_atlas = BrainGlobeAtlas(atlas_name)
-
-                try:
-                    from abba_python.abba_private.AbbaAtlas import \
-                        AbbaAtlas  # delayed import because the jvm should be set first
-                except:
-                    try:
-                        from .abba_private.AbbaAtlas import \
-                            AbbaAtlas  # delayed import because the jvm should be set first
-                    except:
-                        print("Could not import AbbaAtlas")
-
                 # initialized
-                atlas = AbbaAtlas(bg_atlas, ij)
+                from abba_private import abba_atlas
+                atlas = abba_atlas.AbbaAtlas(bg_atlas, ij)
                 atlas.initialize(None, None)
                 Abba.opened_atlases[atlas_name] = atlas
                 ij.object().addObject(atlas, atlas_name)  # store it in java's object service

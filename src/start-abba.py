@@ -1,13 +1,7 @@
-# core dependencies
 import time
-# from abba_python import abba # works in CLI
-# from abba_python.abba import add_brainglobe_atlases # works in CLI
-# in order to wait for a jvm shutdown
 import jpype
 import imagej
-
 import os
-
 import abba
 
 # THIS FILE SETS MANY PATHS EXPLICITLY WHEN ABBA IS INSTALLED FROM THE INSTALLER!
@@ -16,7 +10,7 @@ import abba
 if __name__ == '__main__':
     os.path.dirname(os.getcwd())
 
-    # In ABBA PYthon, Fiji.app is in the parent directory of this script
+    # In ABBA Python, Fiji.app is in the parent directory of this script
     # fiji_app_path = str(os.path.join(os.path.dirname(os.getcwd()), 'Fiji.app'))
     ij = imagej.init(abba.get_java_dependencies(), mode="interactive")
 
@@ -26,7 +20,6 @@ if __name__ == '__main__':
     # File ch.epfl.biop.wrappers.elastix.Elastix exePath
     # File ch.epfl.biop.wrappers.transformix.Transformix exePath
 
-    #Todo: set deepslice env path
     from scyjava import jimport
     from jpype.types import JString
 
@@ -81,7 +74,6 @@ if __name__ == '__main__':
         print('ERROR! '+platform.system()+' OS not supported yet.')
 
     # --
-
 
     ij.ui().showUI() # add at the end ?
 
