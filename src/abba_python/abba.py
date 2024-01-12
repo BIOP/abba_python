@@ -99,7 +99,6 @@ def add_brainglobe_atlases(ij):
         def get(self):
             bg_atlas = BrainGlobeAtlas(self.atlas_name)
             from abba_private.abba_atlas import AbbaAtlas  # but wth ????
-            print(bg_atlas)
             current_atlas = AbbaAtlas(bg_atlas, self.ij)
             current_atlas.initialize(None, None)
             Abba.opened_atlases[self.atlas_name] = current_atlas
