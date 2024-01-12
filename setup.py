@@ -37,7 +37,7 @@ setup(
     include_package_data=True,
     keywords='abba_python',
     name='abba_python',
-    packages=find_packages(include=['abba_python', 'abba_python.*']),
+    packages=['abba_python', 'abba_python.abba_private'], #find_packages(include=['abba_python', 'abba_python.*', 'abba_python/abba_private']),
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/BIOP/abba_python',
