@@ -2,7 +2,7 @@
 
 __author__ = """Nicolas Chiaruttini"""
 __email__ = 'nicolas.chiaruttini@epfl.ch'
-__version__ = '0.7.9'
+__version__ = '0.7.10'
 
 from . import abba
 
