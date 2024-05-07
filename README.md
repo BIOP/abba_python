@@ -8,7 +8,7 @@
 Aligning Big Brains and Atlases, controlled from Python.
 
 * Free software: GNU General Public License v3
-* Documentation: https://biop.github.io/ijp-imagetoatlas/
+* Documentation: https://abba-documentation.readthedocs.io
 
 # ABBA in brief
 
