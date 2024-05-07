@@ -178,7 +178,7 @@ class Abba:
             else:
                 bg_atlas = BrainGlobeAtlas(atlas_name)
                 # initialized
-                from abba_private import abba_atlas
+                from abba_python.abba_private import abba_atlas
                 atlas = abba_atlas.AbbaAtlas(bg_atlas, ij)
                 atlas.initialize(None, None)
                 Abba.opened_atlases[atlas_name] = atlas
