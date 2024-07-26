@@ -1,5 +1,5 @@
-from bg_atlasapi import BrainGlobeAtlas
-from bg_atlasapi.descriptors import STRUCTURES_FILENAME
+from brainglobe_atlasapi import BrainGlobeAtlas
+from brainglobe_atlasapi.descriptors import STRUCTURES_FILENAME
 from scyjava import jimport
 from jpype import JImplements, JOverride
 from jpype.types import JString

@@ -1,4 +1,4 @@
-from bg_atlasapi import BrainGlobeAtlas
+from brainglobe_atlasapi import BrainGlobeAtlas
 from scyjava import jimport
 from jpype import JImplements, JOverride
 from jpype.types import JString

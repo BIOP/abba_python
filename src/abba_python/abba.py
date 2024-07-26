@@ -4,9 +4,9 @@
 import os
 
 # BrainGlobe
-from bg_atlasapi import BrainGlobeAtlas
-from bg_atlasapi.list_atlases import get_all_atlases_lastversions, get_downloaded_atlases, get_local_atlas_version
-from bg_atlasapi.utils import check_internet_connection
+from brainglobe_atlasapi import BrainGlobeAtlas
+from brainglobe_atlasapi.list_atlases import get_all_atlases_lastversions, get_downloaded_atlases, get_local_atlas_version
+from brainglobe_atlasapi.utils import check_internet_connection
 
 # PyImageJ / Scyjava
 from scyjava import jimport
