@@ -10,7 +10,7 @@ with open('README.md') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['numpy', 'pandas', 'pyimagej', 'bg-atlasapi']
+requirements = ['numpy', 'pandas', 'pyimagej', 'brainglobe-atlasapi']
 
 test_requirements = [ ]
 
@@ -24,9 +24,8 @@ setup(
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Natural Language :: English',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8'
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
     ],
     description="Aligning Big Brains and Atlases, controlled from Python.",
     install_requires=requirements,
