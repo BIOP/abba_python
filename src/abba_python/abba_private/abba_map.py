@@ -19,8 +19,8 @@ def array_to_source(ij, array, name, transform=AffineTransform3D()):
     img = ij.py.to_java(array)
     name_java_str = JString(name)
     # we supposed it's of dimension 3
-    pixel_type = Util.getTypeFromInterval(img);
-    rai_source = RandomAccessibleIntervalSource(img, pixel_type, transform, name_java_str);
+    pixel_type = Util.getTypeFromInterval(img)
+    rai_source = RandomAccessibleIntervalSource(img, pixel_type, transform, name_java_str)
     return SourceAndConverterHelper.createSourceAndConverter(rai_source)
 
 
@@ -52,9 +52,9 @@ class AbbaMap(object):
 
         atlas_resolution_in__mm = JDouble(min(self.atlas.metadata['resolution']) / 1000.0)
 
-        vox_x_mm = self.atlas.metadata['resolution'][0] / 1000.0
+        vox_x_mm = self.atlas.metadata['resolution'][2] / 1000.0
         vox_y_mm = self.atlas.metadata['resolution'][1] / 1000.0
-        vox_z_mm = self.atlas.metadata['resolution'][2] / 1000.0
+        vox_z_mm = self.atlas.metadata['resolution'][0] / 1000.0
 
         affine_transform = AffineTransform3D()
         affine_transform.scale(JDouble(vox_x_mm), JDouble(vox_y_mm), JDouble(vox_z_mm))
@@ -93,9 +93,9 @@ class AbbaMap(object):
             self.maxValues[extra_channel] = JDouble(np.max(self.atlas.additional_references[extra_channel]) * 2)
         structural_images['borders'] = SourceVoxelProcessor.getBorders(self.annotation_sac)
         self.maxValues['borders'] = 256  # we know this one.
-        structural_images['X'] = AtlasHelper.getCoordinateSac(0, JString('X'))
+        structural_images['X'] = AtlasHelper.getCoordinateSac(2, JString('X'))
         structural_images['Y'] = AtlasHelper.getCoordinateSac(1, JString('Y'))
-        structural_images['Z'] = AtlasHelper.getCoordinateSac(2, JString('Z'))
+        structural_images['Z'] = AtlasHelper.getCoordinateSac(0, JString('Z'))
         structural_images['Left Right'] = left_right_sac  # return Map<String,SourceAndConverter>
 
         self.atlas_resolution_in__mm = atlas_resolution_in__mm
