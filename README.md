@@ -22,7 +22,7 @@ With ABBA Python, you can control ABBA API from python, and get some additional 
 
 # Getting started
 
-1. Install [miniconda](https://docs.conda.io/projects/miniconda/en/latest/miniconda-install.html) or [miniforge](https://github.com/conda-forge/miniforge).
+1. Install [miniforge](https://github.com/conda-forge/miniforge).
 2. Create a conda environment with Python 3.10, pyimagej, OpenJDK 11 and maven and activate it
 3. Install abba_python
 ```
