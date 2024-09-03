@@ -15,12 +15,14 @@ SourceVoxelProcessor = jimport('ch.epfl.biop.sourceandconverter.SourceVoxelProce
 RandomAccessibleIntervalSource = jimport('bdv.util.RandomAccessibleIntervalSource')
 Util = jimport('net.imglib2.util.Util')
 SourceAndConverterHelper = jimport('sc.fiji.bdvpg.sourceandconverter.SourceAndConverterHelper')
+
+
 def array_to_source(ij, array, name, transform=AffineTransform3D()):
     img = ij.py.to_java(array)
     name_java_str = JString(name)
     # we supposed it's of dimension 3
-    pixel_type = Util.getTypeFromInterval(img);
-    rai_source = RandomAccessibleIntervalSource(img, pixel_type, transform, name_java_str);
+    pixel_type = Util.getTypeFromInterval(img)
+    rai_source = RandomAccessibleIntervalSource(img, pixel_type, transform, name_java_str)
     return SourceAndConverterHelper.createSourceAndConverter(rai_source)
 
 
@@ -42,22 +44,29 @@ class AbbaMap(object):
         self.atlas = bg_atlas
         self.ij = ij
 
+    # noinspection PyPep8Naming
     @JOverride
     def setDataSource(self, dataSource):
         self.dataSource = dataSource
 
+    # noinspection PyPep8Naming
     @JOverride
     def initialize(self, atlasName):
         self.atlasName = str(atlasName)
 
         atlas_resolution_in__mm = JDouble(min(self.atlas.metadata['resolution']) / 1000.0)
 
-        vox_x_mm = self.atlas.metadata['resolution'][0] / 1000.0
+        vox_x_mm = self.atlas.metadata['resolution'][2] / 1000.0
         vox_y_mm = self.atlas.metadata['resolution'][1] / 1000.0
-        vox_z_mm = self.atlas.metadata['resolution'][2] / 1000.0
+        vox_z_mm = self.atlas.metadata['resolution'][0] / 1000.0
 
         affine_transform = AffineTransform3D()
         affine_transform.scale(JDouble(vox_x_mm), JDouble(vox_y_mm), JDouble(vox_z_mm))
+        # affine_transform.set(
+        #     JDouble(0), JDouble(0), JDouble(vox_z_mm), JDouble(0),
+        #    JDouble(0), JDouble(vox_y_mm), JDouble(0), JDouble(0),
+        #    JDouble(vox_x_mm), JDouble(0), JDouble(0), JDouble(0),
+        # )
 
         # Convert
         reference_sac = array_to_source(self.ij, self.atlas.reference,
@@ -85,6 +94,7 @@ class AbbaMap(object):
         structural_images = dict()
         self.maxValues = dict()
         structural_images['reference'] = reference_sac
+        print("Max = "+str(np.max(self.atlas.reference)))
         self.maxValues['reference'] = JDouble(np.max(self.atlas.reference) * 2)
         for extra_channel in self.atlas.metadata['additional_references']:
             structural_images[extra_channel] = array_to_source(self.ij, self.atlas.additional_references[extra_channel],

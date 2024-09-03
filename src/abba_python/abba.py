@@ -2,10 +2,12 @@
 
 # Core
 import os
+import time
 
 # BrainGlobe
 from brainglobe_atlasapi import BrainGlobeAtlas
-from brainglobe_atlasapi.list_atlases import get_all_atlases_lastversions, get_downloaded_atlases, get_local_atlas_version
+from brainglobe_atlasapi.list_atlases import get_all_atlases_lastversions, get_downloaded_atlases, \
+    get_local_atlas_version
 from brainglobe_atlasapi.utils import check_internet_connection
 
 # PyImageJ / Scyjava
@@ -14,6 +16,11 @@ import imagej
 
 # JPype
 from jpype.types import JString, JArray
+#
+from typing import Literal
+
+LogLevel = Literal['OFF', 'DEBUG', 'INFO']
+
 
 def get_java_dependencies():
     """
@@ -22,12 +29,19 @@ def get_java_dependencies():
     these jars should be available in https://maven.scijava.org/
     :return:
     """
-    imagej_core_dep = 'net.imagej:imagej:2.14.0'
-    imagej_legacy_dep = 'net.imagej:imagej-legacy:1.2.1'
-    abba_dep = 'ch.epfl.biop:ImageToAtlasRegister:0.8.0'
-    return [imagej_core_dep, imagej_legacy_dep, abba_dep]
+    return ['net.imagej:imagej:2.15.0',
+            'net.imagej:imagej-legacy:1.2.2',
+            'ch.epfl.biop:ImageToAtlasRegister:0.9.4',
+            'ch.epfl.biop:bigdataviewer-biop-tools:0.10.5',
+            'sc.fiji:bigdataviewer-playground:0.10.4',
+            'sc.fiji:bigwarp_fiji:9.1.2',
+            'net.imglib2:imglib2-realtransform:4.0.2',
+            'com.formdev:flatlaf:3.5',
+            'ch.epfl.biop:bigdataviewer-image-loaders:0.8.1']
 
-def start_imagej(headless: bool = False):
+
+def start_imagej(headless: bool = False,
+                 log_level: LogLevel = 'INFO'):
     mode = "headless"
     if not headless:
         mode = "interactive"
@@ -37,11 +51,8 @@ def start_imagej(headless: bool = False):
     from scyjava import jimport
     from jpype.types import JString
 
-    # loci.common.DebugTools.enableLogging("OFF");
     DebugTools = jimport('loci.common.DebugTools')
-    # DebugTools.enableLogging('OFF')
-    DebugTools.enableLogging("INFO")
-    # DebugTools.enableLogging("DEBUG")
+    DebugTools.enableLogging(JString(log_level))
 
     import platform
     if platform.system() == 'Windows':
@@ -55,8 +66,7 @@ def start_imagej(headless: bool = False):
         try:
             print('Attempt to set ABBA Atlas cache directory to ' + directory)
             os.makedirs(directory, exist_ok=True)
-            atlasPath = str(directory)
-            AtlasLocationHelper.defaultCacheDir = File(JString(atlasPath))
+            AtlasLocationHelper.defaultCacheDir = File(JString(str(directory)))
             print('ABBA Atlas cache directory set to ' + directory)
         except OSError:
             print('ERROR! Could not set ABBA Atlas cache dir')
@@ -68,6 +78,7 @@ def start_imagej(headless: bool = False):
 
     if not headless:
         ij.ui().showUI()
+
 
 def add_brainglobe_atlases(ij):
     # TODO : check connection available or not
@@ -98,7 +109,7 @@ def add_brainglobe_atlases(ij):
         @JOverride
         def get(self):
             bg_atlas = BrainGlobeAtlas(self.atlas_name)
-            from abba_python.abba_private.abba_atlas import AbbaAtlas  # but wth ????
+            from abba_atlas import AbbaAtlas
             current_atlas = AbbaAtlas(bg_atlas, self.ij)
             current_atlas.initialize(None, None)
             Abba.opened_atlases[self.atlas_name] = current_atlas
@@ -131,17 +142,21 @@ class Abba:
         should be 'coronal', 'sagittal' or 'horizontal'
         TO IMPROVE : test how well this matches with the BrainGlobe API
 
+    log_level :
+        should be taken within LogLevel literal
+
     """
 
     opened_atlases: dict = {}
 
     def __init__(
-        self,
-        atlas_name: str = 'Adult Mouse Brain - Allen Brain Atlas V3',
-        ij=None,
-        slicing_mode: str = 'coronal',  # or sagittal or horizontal
-        headless: bool = False,
-        print_config: bool = True
+            self,
+            atlas_name: str = 'Adult Mouse Brain - Allen Brain Atlas V3p1',
+            ij=None,
+            slicing_mode: str = 'coronal',  # or sagittal or horizontal
+            headless: bool = False,
+            print_config: bool = True,
+            log_level: LogLevel = 'INFO'
     ):
         if ij is None:
             if headless:
@@ -156,7 +171,7 @@ class Abba:
 
         # Look in object service to see if the atlas is not already opened by any chance
         # in java TODO
-
+        # return
         # or in python
         if atlas_name not in Abba.opened_atlases:
             if atlas_name == 'Adult Mouse Brain - Allen Brain Atlas V3':
@@ -178,8 +193,8 @@ class Abba:
             else:
                 bg_atlas = BrainGlobeAtlas(atlas_name)
                 # initialized
-                from abba_python.abba_private import abba_atlas
-                atlas = abba_atlas.AbbaAtlas(bg_atlas, ij)
+                from abba_atlas import AbbaAtlas
+                atlas = AbbaAtlas(bg_atlas, ij)
                 atlas.initialize(None, None)
                 Abba.opened_atlases[atlas_name] = atlas
                 ij.object().addObject(atlas, atlas_name)  # store it in java's object service
@@ -188,9 +203,9 @@ class Abba:
         self.slicing_mode = slicing_mode
         self.atlas_name = atlas_name
 
-        # .. but before : logger, please shut up
+        # Setting logging options
         DebugTools = jimport('loci.common.DebugTools')
-        DebugTools.enableLogging('OFF')
+        DebugTools.enableLogging(JString(log_level))
 
         # Ok, let's create abba_python's model: mp = multipositioner
 
@@ -279,11 +294,35 @@ class Abba:
         """
         if not hasattr(self, 'bdv_view'):
             # no bdv view properties : creates a new one
-            BdvMultislicePositionerView = jimport('ch.epfl.biop.atlas.aligner.gui.bdv.BdvMultislicePositionerView')
-            DefaultBdvSupplier = jimport('sc.fiji.bdvpg.bdv.supplier.DefaultBdvSupplier')
-            SerializableBdvOptions = jimport('sc.fiji.bdvpg.bdv.supplier.SerializableBdvOptions')
-            bdvh = DefaultBdvSupplier(SerializableBdvOptions()).get()
-            self.bdv_view = BdvMultislicePositionerView(self.mp, bdvh)
+            SwingUtilities = jimport('javax.swing.SwingUtilities')
+            Runnable = jimport('java.lang.Runnable')
+
+            from jpype import JImplements, JOverride
+
+            # We need to create the view in the Java UI thread
+            @JImplements(Runnable)
+            class BdvViewGetter:
+                def __init__(self, mp):
+                    self.bdv_view = None
+                    self.mp = mp
+
+                @JOverride
+                def run(self):
+                    DefaultBdvSupplier = jimport('sc.fiji.bdvpg.bdv.supplier.DefaultBdvSupplier')
+                    SerializableBdvOptions = jimport('sc.fiji.bdvpg.bdv.supplier.SerializableBdvOptions')
+                    BdvMultislicePositionerView = jimport(
+                        'ch.epfl.biop.atlas.aligner.gui.bdv.BdvMultislicePositionerView')
+                    bdvh = DefaultBdvSupplier(SerializableBdvOptions()).get()
+                    self.bdv_view = BdvMultislicePositionerView(self.mp, bdvh)
+
+                def get_bdv_view(self):
+                    return self.bdv_view
+
+            bdv_view_getter = BdvViewGetter(self.mp)
+            SwingUtilities.invokeLater(bdv_view_getter)
+            while bdv_view_getter.get_bdv_view() is None:
+                time.sleep(0.2)
+            self.bdv_view = bdv_view_getter.get_bdv_view()
         else:
             # TODO: make sure it is visible
             pass
@@ -378,7 +417,7 @@ class Abba:
 
     def forum_help(self):
         """
-        Open a new post in the image.sc forum with current install information
+        Open a new post in the image.sc forum with current installation information
 
         """
         ABBAForumHelpCommand = jimport('ch.epfl.biop.atlas.aligner.command.ABBAForumHelpCommand')
@@ -461,7 +500,8 @@ class Abba:
                                            max_number_of_iterations: int,
                                            resolution_level: int):
         """
-        Exports physical coordinates of the atlas in a 3 channel (x,y,z) image that matches pixels of the initial unregistered slice (for each selected slice). Resolution levels can be specified.
+        Exports physical coordinates of the atlas in a 3 channel (x,y,z) image that matches pixels of the initial
+        unregistered slice (for each selected slice). Resolution levels can be specified.
 
         Parameters:
         downsampling (int): Extra DownSampling
@@ -507,7 +547,8 @@ class Abba:
                                               px_size_micron_z: float,
                                               resolution_levels: int):
         """
-        Export registered (deformed) slices in the atlas coordinates. A pixel size should be specified to resample the registered images.
+        Export registered (deformed) slices in the atlas coordinates. A pixel size should be specified to resample
+        the registered images.
 
         Parameters:
         block_size_x (int): Block Size X
@@ -551,7 +592,8 @@ class Abba:
                                               resolution_level: int,
                                               verbose: bool):
         """
-        Export to ImageJ the original unregistered slice data (for each selected slice).If the image has more than 2GPixels, this will fail. Resolution levels can be specified.
+        Export to ImageJ the original unregistered slice data (for each selected slice).If the image has more than
+        2GPixels, this will fail. Resolution levels can be specified.
 
         Parameters:
         channels (str): Slices channels, 0-based, comma separated, '*' for all channels
@@ -634,7 +676,8 @@ class Abba:
                                            max_number_of_iterations: int,
                                            resolution_level: int):
         """
-        Exports physical coordinates of the atlas in a 3 channel (x,y,z) image that matches pixels of the initial unregistered slice (for each selected slice). Resolution levels can be specified.
+        Exports physical coordinates of the atlas in a 3 channel (x,y,z) image that matches pixels of the initial
+        unregistered slice (for each selected slice). Resolution levels can be specified.
 
         Parameters:
         atlas_channels (str): Channels to export, '*' for all channels
@@ -768,7 +811,8 @@ class Abba:
     def raster_slices_deformation(self,
                                   grid_spacing_in_micrometer: float):
         """
-        Speed up the display of slices by precomputing and caching their deformation field (useful after spline registrations only!).
+        Speed up the display of slices by precomputing and caching their deformation field (useful after spline
+        registrations only!).
 
         Parameters:
         grid_spacing_in_micrometer (float): Deformation grid size (micrometer)
@@ -887,7 +931,7 @@ class Abba:
                                        channels_slice_csv: str,
                                        pixel_size_micrometer: float,
                                        show_imageplus_registration_result: bool = False,
-                                       background_offset_value_moving: float = 0,):
+                                       background_offset_value_moving: float = 0, ):
         """
         Uses Elastix for affine in plane registration of selected slices
 
@@ -914,7 +958,7 @@ class Abba:
                                        nb_control_points_x: int,
                                        pixel_size_micrometer: float,
                                        show_imageplus_registration_result: bool = False,
-                                       background_offset_value_moving: float = 0,):
+                                       background_offset_value_moving: float = 0, ):
         """
         Uses Elastix for spline in plane registration of selected slices
 
@@ -996,7 +1040,8 @@ class Abba:
 
     def set_slices_thickness_match_neighbors(self):
         """
-        Modifies the selected slices thickness in such a way that no space is left between slices. This is visible only in the reconstructed volume in BigDataViewer
+        Modifies the selected slices thickness in such a way that no space is left between slices. This is visible
+        only in the reconstructed volume in BigDataViewer
 
         """
         SetSlicesThicknessMatchNeighborsCommand = jimport(

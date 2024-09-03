@@ -1,4 +1,4 @@
-* ABBA Python version:
+* abba-python version:
 * Python version:
 * Operating System:
 

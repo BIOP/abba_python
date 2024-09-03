@@ -4,7 +4,6 @@ from scyjava import jimport
 from jpype import JImplements, JOverride
 from jpype.types import JString
 
-
 AtlasHelper = jimport('ch.epfl.biop.atlas.struct.AtlasHelper')
 AtlasOntology = jimport('ch.epfl.biop.atlas.struct.AtlasOntology')
 
@@ -22,7 +21,6 @@ class AbbaOntology(object):
 
     def __init__(self, bg_atlas: BrainGlobeAtlas):
         self.atlas = bg_atlas
-        # bg_atlas.root_dir.
 
     @JOverride
     def getName(self):
@@ -34,9 +32,12 @@ class AbbaOntology(object):
         print(str(self.atlas.root_dir / STRUCTURES_FILENAME))
         print(BrainGlobeHelper)
         print(BrainGlobeHelper.buildTreeAndGetRoot)
-        self.root_node = BrainGlobeHelper.buildTreeAndGetRoot(JString(str(self.atlas.root_dir / STRUCTURES_FILENAME))) # AbbaAtlasNode(self.atlas, self.atlas.structures.tree.root, None)
+        self.root_node = BrainGlobeHelper.buildTreeAndGetRoot(JString(
+            str(self.atlas.root_dir / STRUCTURES_FILENAME)))  # AbbaAtlasNode(self.atlas,
+        # self.atlas.structures.tree.root, None)
         self.idToAtlasNodeMap = AtlasHelper.buildIdToAtlasNodeMap(self.root_node)
 
+    # noinspection PyPep8Naming
     @JOverride
     def setDataSource(self, dataSource):
         self.dataSource = dataSource
@@ -57,6 +58,7 @@ class AbbaOntology(object):
     def getNamingProperty(self):
         return self.namingProperty
 
+    # noinspection PyPep8Naming
     @JOverride
     def setNamingProperty(self, namingProperty):
         self.namingProperty = namingProperty

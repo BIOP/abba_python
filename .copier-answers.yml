@@ -1,0 +1,12 @@
+# Do not edit - changes here will be overwritten by Copier
+_commit: v1
+_src_path: gh:pydev-guide/pyrepo-copier
+author_email: nicolas.chiaruttini@epfl.ch
+author_name: Nicolas Chiaruttini
+github_username: BIOP
+mode: tooling
+module_name: abba_python
+project_name: abba-python
+project_short_description: Aligning Big Brains and Atlases (ABBA), controlled from
+    python.
+

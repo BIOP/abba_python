@@ -1,28 +1,27 @@
+# abba-python
 
-# ABBA Python
+[![License](https://img.shields.io/pypi/l/abba-python.svg?color=green)](https://github.com/BIOP/abba-python/raw/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/abba-python.svg?color=green)](https://pypi.org/project/abba-python)
+[![Python Version](https://img.shields.io/pypi/pyversions/abba-python.svg?color=green)](https://python.org)
+[![CI](https://github.com/BIOP/abba-python/actions/workflows/ci.yml/badge.svg)](https://github.com/BIOP/abba-python/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/BIOP/abba-python/branch/main/graph/badge.svg)](https://codecov.io/gh/BIOP/abba-python)
 
-[![](https://img.shields.io/pypi/v/abba_python.svg)](https://pypi.python.org/pypi/abba_python)
+Aligning Big Brains and Atlases (ABBA), controlled from python.
 
-[![](https://img.shields.io/travis/nicoKiaru/abba_python.svg)](https://travis-ci.com/nicoKiaru/abba_python)
-
-Aligning Big Brains and Atlases, controlled from Python.
-
-* Free software: GNU General Public License v3
 * Documentation: https://abba-documentation.readthedocs.io
 
 # ABBA in brief
 
 Aligning Big Brains & Atlases, abbreviated as ABBA, allows you to register thin serial sections to multiple atlases in coronal, sagittal, and horizontal orientations. It is mainly a Java application, but this repo makes all of its API accessible in Python.
 
-With ABBA Python, you can control ABBA API from python, and get some additional perks. In particular you get access to all [BrainGlobe atlases](https://brainglobe.info/documentation/bg-atlasapi/usage/atlas-details.html).
-
+With ABBA Python, you can control ABBA API from python, and get some additional perks. In particular, you get access to all [BrainGlobe atlases](https://brainglobe.info/documentation/bg-atlasapi/usage/atlas-details.html).
 
 > [!WARNING]
 > Due to some threading issues, the GUI does not work with MacOSX
 
 # Getting started
 
-1. Install [miniforge](https://github.com/conda-forge/miniforge).
+1. Install [miniforge](https://docs.conda.io/projects/miniconda/en/latest/miniconda-install.html) or [miniforge](https://github.com/conda-forge/miniforge).
 2. Create a conda environment with Python 3.10, pyimagej, OpenJDK 11 and maven and activate it
 3. Install abba_python
 ```
@@ -43,7 +42,7 @@ from abba_python import abba
 abba.start_imagej()
 ```
 
-You can then use ABBA within Fiji; for more details, visit https://biop.github.io/ijp-imagetoatlas/.
+You can then use ABBA within Fiji.
 ABBA is typically used in conjunction with [QuPath](https://qupath.github.io/): a QuPath project can serve as input for ABBA, and the registration results can be imported back into QuPath for further processing.
 
 ## To begin with ABBA with jupyter lab
@@ -55,7 +54,7 @@ pip install jupyterlab
 pip install ipywidgets
 ```
 
-You can now run `jupyter lab` and start using notebooks, like the ones provided in examples in the github repo.
+You can now run `jupyter lab` and start using notebooks, like the ones provided in examples in the gitHub repo.
 
 # Installing extra modules
 
@@ -86,15 +85,7 @@ You need to follow this two steps procedure to enable Windows to use conda from 
 * Into the environment variable, edit PATH, add path to your ..\Anaconda3\condabin default would be C:\ProgramData\Anaconda3\condabin
 * Open a new PowerShell (and/or PowerShell (x86) ), run the following command once to initialize conda:  `conda init`
 
-
 # Note on versions
 
 OpenJDK versions above 8 can work, but they have been less tested, so there may be unexpected bugs. To avoid [certificate issues](https://pyimagej.readthedocs.io/en/latest/Troubleshooting.html#unable-to-find-valid-certification-path), it is recommended to have openjdk installed from conda-forge.
 
-# Credits
-
-This package was created with Cookiecutter and the `audreyr/cookiecutter-pypackage` project template.
-
-[Cookiecutter](https://github.com/audreyr/cookiecutter)
-
-[audreyr/cookiecutter-pypackage](https://github.com/audreyr/cookiecutter-pypackage)

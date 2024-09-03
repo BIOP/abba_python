@@ -1,10 +1,16 @@
-"""Top-level package for ABBA Python."""
+"""Aligning Big Brains and Atlases (ABBA), controlled from python."""
 
-__author__ = """Nicolas Chiaruttini"""
-__email__ = 'nicolas.chiaruttini@epfl.ch'
-__version__ = '0.8.0'
+from importlib.metadata import PackageNotFoundError, version
 
-from . import abba
+# Metadata
+try:
+    __version__ = version("abba-python")
+except PackageNotFoundError:
+    __version__ = "uninstalled"
+__author__ = "Nicolas Chiaruttini"
+__email__ = "nicolas.chiaruttini@epfl.ch"
 
+# Public API
+from .abba import Abba
 
-
+__all__ = ['Abba']

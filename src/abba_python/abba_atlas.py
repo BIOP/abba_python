@@ -3,8 +3,8 @@ from scyjava import jimport
 from jpype import JImplements, JOverride
 from jpype.types import JString
 
-from abba_python.abba_private.abba_map import AbbaMap
-from abba_python.abba_private.abba_ontology import AbbaOntology
+from abba_map import AbbaMap
+from abba_ontology import AbbaOntology
 
 ArrayList = jimport('java.util.ArrayList')
 Atlas = jimport('ch.epfl.biop.atlas.struct.Atlas')
@@ -33,8 +33,10 @@ class AbbaAtlas(object):
     def getOntology(self):
         return self.bg_ontology
 
+    # noinspection PyUnusedLocal,PyPep8Naming
     @JOverride
-    def initialize(self, mapURL, ontologyURL):
+    def initialize(self, mapURL,
+                   ontologyURL):  # We need these extra unused arguments in order to match the Java signature
         self.bg_ontology = AbbaOntology(self.atlas)
         self.bg_ontology.initialize()
         self.bg_ontology.setNamingProperty(JString('acronym'))
@@ -58,3 +60,4 @@ class AbbaAtlas(object):
     @JOverride
     def toString(self):
         return self.getName()
+
