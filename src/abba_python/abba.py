@@ -37,7 +37,9 @@ def get_java_dependencies():
             'sc.fiji:bigwarp_fiji:9.1.2',
             'net.imglib2:imglib2-realtransform:4.0.2',
             'com.formdev:flatlaf:3.5',
-            'ch.epfl.biop:bigdataviewer-image-loaders:0.8.1']
+            'ch.epfl.biop:bigdataviewer-image-loaders:0.8.2',
+            'ch.epfl.biop:atlas:0.2.2'
+    ]
 
 
 def start_imagej(headless: bool = False,
@@ -109,7 +111,20 @@ def add_brainglobe_atlases(ij):
         @JOverride
         def get(self):
             bg_atlas = BrainGlobeAtlas(self.atlas_name)
-            from abba_atlas import AbbaAtlas
+            try:
+                from src.abba_python.abba_atlas import AbbaAtlas
+            except:
+                # print('from src.abba_python.abba_atlas import AbbaAtlas do not work')
+                try:
+                    from abba_python.abba_atlas import AbbaAtlas
+                except:
+                    # print('from abba_python.abba_atlas import AbbaAtlas do not work')
+                    try:
+                        from abba_atlas import AbbaAtlas
+                    except:
+                        print('Error: could not import abba_atlas')
+
+            # from
             current_atlas = AbbaAtlas(bg_atlas, self.ij)
             current_atlas.initialize(None, None)
             Abba.opened_atlases[self.atlas_name] = current_atlas

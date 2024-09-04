@@ -43,7 +43,10 @@ class AbbaAtlas(object):
         self.bg_atlasmap = AbbaMap(self.atlas, self.ij)
         self.bg_atlasmap.initialize(self.atlas.atlas_name)
         self.dois = ArrayList()
-        self.dois.add(JString(self.atlas.metadata['citation'].split("doi.org/", 1)[1]))
+        try:
+            self.dois.add(JString(self.atlas.metadata['citation'].split("doi.org/", 1)[1]))
+        except:
+            self.dois.add(JString("could not parse doi"))
 
     @JOverride
     def getDOIs(self):
