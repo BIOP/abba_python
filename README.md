@@ -14,7 +14,7 @@ Aligning Big Brains and Atlases (ABBA), controlled from python.
 
 Aligning Big Brains & Atlases, abbreviated as ABBA, allows you to register thin serial sections to multiple atlases in coronal, sagittal, and horizontal orientations. It is mainly a Java application, but this repo makes all of its API accessible in Python.
 
-With ABBA Python, you can control ABBA API from python, and get some additional perks. In particular, you get access to all [BrainGlobe atlases](https://brainglobe.info/documentation/bg-atlasapi/usage/atlas-details.html).
+With ABBA Python, you can control ABBA API from python, and get some additional perks. In particular, you get access to all [BrainGlobe atlases](https://brainglobe.info/documentation/brainglobe-atlasapi/usage/atlas-details.html).
 
 > [!WARNING]
 > Due to some threading issues, the GUI does not work with MacOSX
