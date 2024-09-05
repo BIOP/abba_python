@@ -512,7 +512,7 @@ class Abba:
         ABBAStateLoadCommand = jimport('ch.epfl.biop.atlas.aligner.command.ABBAStateLoadCommand')
         return self.ij.command().run(ABBAStateLoadCommand, True,
                                      'mp', self.mp,
-                                     'state_file', state_file).get()
+                                     'state_file', state_file).get().getOutput('success')
 
     def state_save(self,
                    state_file):
@@ -525,7 +525,7 @@ class Abba:
         ABBAStateSaveCommand = jimport('ch.epfl.biop.atlas.aligner.command.ABBAStateSaveCommand')
         return self.ij.command().run(ABBAStateSaveCommand, True,
                                      'mp', self.mp,
-                                     'state_file', state_file).get()
+                                     'state_file', state_file).get().getOutput('success')
 
     def user_feedback(self):
         """
