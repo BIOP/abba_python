@@ -3,8 +3,8 @@ from scyjava import jimport
 from jpype import JImplements, JOverride
 from jpype.types import JString
 
-from abba_map import AbbaMap
-from abba_ontology import AbbaOntology
+from abba_python.abba_map import AbbaMap
+from abba_python.abba_ontology import AbbaOntology
 
 ArrayList = jimport('java.util.ArrayList')
 Atlas = jimport('ch.epfl.biop.atlas.struct.Atlas')

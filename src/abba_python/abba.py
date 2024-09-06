@@ -117,19 +117,7 @@ def add_brainglobe_atlases(ij):
         @JOverride
         def get(self):
             bg_atlas = BrainGlobeAtlas(self.atlas_name)
-            try:
-                from src.abba_python.abba_atlas import AbbaAtlas
-            except:
-                # print('from src.abba_python.abba_atlas import AbbaAtlas do not work')
-                try:
-                    from abba_python.abba_atlas import AbbaAtlas
-                except:
-                    # print('from abba_python.abba_atlas import AbbaAtlas do not work')
-                    try:
-                        from abba_atlas import AbbaAtlas
-                    except:
-                        print('Error: could not import abba_atlas')
-
+            from abba_python.abba_atlas import AbbaAtlas
             # from
             current_atlas = AbbaAtlas(bg_atlas, self.ij)
             current_atlas.initialize(None, None)
@@ -247,7 +235,7 @@ class Abba:
             else:
                 bg_atlas = BrainGlobeAtlas(atlas_name)
                 # initialized
-                from abba_atlas import AbbaAtlas
+                from abba_python.abba_atlas import AbbaAtlas
                 atlas = AbbaAtlas(bg_atlas, ij)
                 atlas.initialize(None, None)
                 Abba.opened_atlases[atlas_name] = atlas
