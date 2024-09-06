@@ -14,7 +14,7 @@ Aligning Big Brains and Atlases (ABBA), controlled from python.
 
 Aligning Big Brains & Atlases, abbreviated as ABBA, allows you to register thin serial sections to multiple atlases in coronal, sagittal, and horizontal orientations. It is mainly a Java application, but this repo makes all of its API accessible in Python.
 
-With ABBA Python, you can control ABBA API from python, and get some additional perks. In particular, you get access to all [BrainGlobe atlases](https://brainglobe.info/documentation/bg-atlasapi/usage/atlas-details.html).
+With ABBA Python, you can control ABBA API from python, and get some additional perks. In particular, you get access to all [BrainGlobe atlases](https://brainglobe.info/documentation/brainglobe-atlasapi/usage/atlas-details.html).
 
 > [!WARNING]
 > Due to some threading issues, the GUI does not work with MacOSX
@@ -60,11 +60,11 @@ You can now run `jupyter lab` and start using notebooks, like the ones provided 
 
 ## Elastix/Transformix
 
-ABBA's automated in-plane registration relies on [elastix 5.0.1](https://github.com/SuperElastix/elastix). To utilize all of ABBA's functionalities, you need to separately install elastix and transformix on your operating system. During the initial run of ABBA, you will be prompted to specify their executable locations. Alternatively, you can set their paths using the API (refer to the [first example notebook](example_notebooks/0.%20Register%20And%20Save%20State.ipynb)).
+ABBA's automated in-plane registration relies on [elastix 5.2.0](https://github.com/SuperElastix/elastix). To utilize all of ABBA's functionalities, you need to separately install elastix and transformix on your operating system. During the initial run of ABBA, you will be prompted to specify their executable locations. Alternatively, you can set their paths using the API (refer to the [first example notebook](example_notebooks/0.%20Register%20And%20Save%20State.ipynb)) (NOTE: NO NOTEBOOK IS CURRENTLY AVAILABLE, see https://github.com/BIOP/abba_python/issues/14).
 
 ## DeepSlice
 
-ABBA can leverage the deep-learning registration tool [DeepSlice](https://github.com/PolarBean/DeepSlice), either through the web interface (in the GUI) or by running it locally. To use DeepSlice locally, you must install it in a separate conda environment and specify its path to ABBA, either through the GUI or the API (as explained in the [first example notebook](example_notebooks/0.%20Register%20And%20Save%20State.ipynb)).
+ABBA can leverage the deep-learning registration tool [DeepSlice](https://github.com/PolarBean/DeepSlice), either through the web interface (in the GUI) or by running it locally. To use DeepSlice locally, you must install it in a separate conda environment and specify its path to ABBA, either through the GUI or the API (as explained in the [first example notebook](example_notebooks/0.%20Register%20And%20Save%20State.ipynb)) (NOTE: NO NOTEBOOK IS CURRENTLY AVAILABLE, see https://github.com/BIOP/abba_python/issues/14).
 
 Note that DeepSlice can also be used locally with the pure Java version thanks to this (new) design.
 
@@ -87,5 +87,5 @@ You need to follow this two steps procedure to enable Windows to use conda from 
 
 # Note on versions
 
-OpenJDK versions above 8 can work, but they have been less tested, so there may be unexpected bugs. To avoid [certificate issues](https://pyimagej.readthedocs.io/en/latest/Troubleshooting.html#unable-to-find-valid-certification-path), it is recommended to have openjdk installed from conda-forge.
+OpenJDK versions above 8 can work, but they have been less tested, so there may be unexpected bugs. To avoid [certificate issues](https://pyimagej.readthedocs.io/en/latest/Troubleshooting.html#unable-to-find-valid-certification-path), it is mandatory to have openjdk installed from conda-forge.
 
