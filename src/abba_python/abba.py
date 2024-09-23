@@ -31,15 +31,28 @@ def get_java_dependencies():
     """
     return ['net.imagej:imagej:2.15.0',
             'net.imagej:imagej-legacy:1.2.2',
-            'ch.epfl.biop:ImageToAtlasRegister:0.9.5',
-            'ch.epfl.biop:bigdataviewer-biop-tools:0.10.5',
-            'sc.fiji:bigdataviewer-playground:0.10.4',
+            'ch.epfl.biop:ImageToAtlasRegister:0.9.6',
+            'ch.epfl.biop:bigdataviewer-biop-tools:0.10.6',
+            'sc.fiji:bigdataviewer-playground:0.10.5',
             'sc.fiji:bigwarp_fiji:9.1.2',
             'net.imglib2:imglib2-realtransform:4.0.2',
             'com.formdev:flatlaf:3.5',
-            'ch.epfl.biop:bigdataviewer-image-loaders:0.8.2',
-            'ch.epfl.biop:atlas:0.2.2'
+            'ch.epfl.biop:bigdataviewer-image-loaders:0.8.6',
+            'ch.epfl.biop:atlas:0.2.2',
+            'org.scijava:scijava-ui-swing:1.0.3',
+            'net.imglib2:imglib2:6.3.0',
+            'org.scijava:scijava-ui-swing:1.0.1', # java.lang.NoClassDefFoundError: org / janelia / saalfeldlab / n5 / universe / metadata / ome / ngff / v05 / graph / TransformGraph
+            'org.janelia.saalfeldlab:n5:3.2.0', # java.lang.NoClassDefFoundError: org/janelia/saalfeldlab/n5/universe/metadata/ome/ngff/v05/transformations/CoordinateTransform
+            'org.janelia.saalfeldlab:n5-blosc:1.1.1',
+            'org.janelia.saalfeldlab:n5-ij:4.1.1',
+            # 'org.janelia.saalfeldlab:n5 - imglib2:',
+            'org.janelia.saalfeldlab:n5-aws-s3:4.1.1',
+            'org.janelia.saalfeldlab:n5-google-cloud:4.1.0',
+            'org.janelia.saalfeldlab:n5-viewer_fiji:6.1.0',
+            'org.janelia.saalfeldlab:n5-zarr:1.3.1',
+            'org.janelia.saalfeldlab:n5-universe:1.4.1',
             ]
+
 
 
 def start_imagej(headless: bool = False,
@@ -134,7 +147,7 @@ def add_brainglobe_atlases(ij):
         'allen_mouse_10um',
         'allen_mouse_25um',
         'allen_mouse_50um',
-        'allen_mouse_100um'
+        'allen_mouse_100um',
         'kim_mouse_10um',
         'kim_mouse_25um',
         'kim_mouse_50um',
