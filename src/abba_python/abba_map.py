@@ -26,6 +26,11 @@ def array_to_source(ij, array, name, transform=AffineTransform3D()):
     return SourceAndConverterHelper.createSourceAndConverter(rai_source)
 
 
+def is_mouse_ccfv3_compatible(atlas_name: str):
+    # Assume that if it is deepslice compatible, it is ccfv3 compatible
+    DeepSliceHelper  = jimport('ch.epfl.biop.atlas.aligner.DeepSliceHelper')
+    return DeepSliceHelper.isDeepSliceMouseCompatible(JString(atlas_name))
+
 @JImplements(AtlasMap)
 class AbbaMap(object):
     """This python class is part of the translation mechanism between the underlying Java ABBA API:
@@ -62,11 +67,15 @@ class AbbaMap(object):
 
         affine_transform = AffineTransform3D()
         affine_transform.scale(JDouble(vox_x_mm), JDouble(vox_y_mm), JDouble(vox_z_mm))
-        # affine_transform.set(
-        #     JDouble(0), JDouble(0), JDouble(vox_z_mm), JDouble(0),
-        #    JDouble(0), JDouble(vox_y_mm), JDouble(0), JDouble(0),
-        #    JDouble(vox_x_mm), JDouble(0), JDouble(0), JDouble(0),
-        # )
+
+        if is_mouse_ccfv3_compatible(atlasName):
+            transform_to_ccfv3 = AffineTransform3D()
+            transform_to_ccfv3.set(
+                JDouble(0), JDouble(0), JDouble(1), JDouble(0),
+                JDouble(0), JDouble(1), JDouble(0), JDouble(0),
+                JDouble(-1), JDouble(0), JDouble(0), JDouble(11.4),
+            )
+            affine_transform = affine_transform.preConcatenate(transform_to_ccfv3)
 
         # Convert
         reference_sac = array_to_source(self.ij, self.atlas.reference,
@@ -135,7 +144,16 @@ class AbbaMap(object):
 
     @JOverride
     def getCoronalTransform(self):
-        return AffineTransform3D()
+        if is_mouse_ccfv3_compatible(self.atlasName):
+            coronal_transform = AffineTransform3D()
+            coronal_transform.set(
+                JDouble(0), JDouble(0), JDouble(1), JDouble(0),
+                JDouble(0), JDouble(1), JDouble(0), JDouble(0),
+                JDouble(-1), JDouble(0), JDouble(0), JDouble(0),
+            )
+            return coronal_transform
+        else:
+            return AffineTransform3D()
 
     @JOverride
     def getImageMax(self, key):
@@ -143,8 +161,8 @@ class AbbaMap(object):
 
     @JOverride
     def labelRight(self):
-        return JInt(1)
+        return JInt(2)
 
     @JOverride
     def labelLeft(self):
-        return JInt(2)
+        return JInt(1)
