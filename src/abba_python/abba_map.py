@@ -4,6 +4,8 @@ from jpype.types import JString, JDouble, JInt
 
 import numpy as np
 
+import abba
+
 AffineTransform3D = jimport('net.imglib2.realtransform.AffineTransform3D')
 ArrayList = jimport('java.util.ArrayList')
 AtlasHelper = jimport('ch.epfl.biop.atlas.struct.AtlasHelper')
@@ -24,12 +26,6 @@ def array_to_source(ij, array, name, transform=AffineTransform3D()):
     pixel_type = Util.getTypeFromInterval(img)
     rai_source = RandomAccessibleIntervalSource(img, pixel_type, transform, name_java_str)
     return SourceAndConverterHelper.createSourceAndConverter(rai_source)
-
-
-def is_mouse_ccfv3_compatible(atlas_name: str):
-    # Assume that if it is deepslice compatible, it is ccfv3 compatible
-    DeepSliceHelper  = jimport('ch.epfl.biop.atlas.aligner.DeepSliceHelper')
-    return DeepSliceHelper.isDeepSliceMouseCompatible(JString(atlas_name))
 
 @JImplements(AtlasMap)
 class AbbaMap(object):
@@ -68,7 +64,7 @@ class AbbaMap(object):
         affine_transform = AffineTransform3D()
         affine_transform.scale(JDouble(vox_x_mm), JDouble(vox_y_mm), JDouble(vox_z_mm))
 
-        if is_mouse_ccfv3_compatible(atlasName):
+        if atlasName in abba.atlases_using_allen_ccfv3_convention:
             transform_to_ccfv3 = AffineTransform3D()
             transform_to_ccfv3.set(
                 JDouble(0), JDouble(0), JDouble(1), JDouble(0),
@@ -144,7 +140,7 @@ class AbbaMap(object):
 
     @JOverride
     def getCoronalTransform(self):
-        if is_mouse_ccfv3_compatible(self.atlasName):
+        if self.atlasName in abba.atlases_using_allen_ccfv3_convention:
             coronal_transform = AffineTransform3D()
             coronal_transform.set(
                 JDouble(0), JDouble(0), JDouble(1), JDouble(0),

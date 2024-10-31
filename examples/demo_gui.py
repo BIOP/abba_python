@@ -6,6 +6,10 @@ from abba_python import abba
 
 
 def main():
+
+    # if you want to change the atlas that are using the ccfv3 convention
+    # abba.atlases_using_allen_ccfv3_convention = []
+
     # To enable Java debugging:
 
     attach_java_debugger = False

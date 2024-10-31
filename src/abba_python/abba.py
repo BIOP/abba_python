@@ -21,6 +21,33 @@ from typing import Literal
 
 LogLevel = Literal['OFF', 'DEBUG', 'INFO']
 
+atlases_using_allen_ccfv3_convention = [
+        'example_mouse_100um',
+        'allen_mouse_10um',
+        'allen_mouse_25um',
+        'allen_mouse_50um',
+        'allen_mouse_100um',
+        'kim_mouse_10um',
+        'kim_mouse_25um',
+        'kim_mouse_50um',
+        'kim_mouse_100um',
+        'osten_mouse_10um',
+        'osten_mouse_25um',
+        'osten_mouse_50um',
+        'osten_mouse_100um',
+        'perens_lsfm_mouse_20um',
+        'kim_dev_mouse_stp_10um',
+        'kim_dev_mouse_idisco_10um',
+        'kim_dev_mouse_mri_a0_10um',
+        'kim_dev_mouse_mri_adc_10um',
+        'kim_dev_mouse_mri_dwi_10um',
+        'kim_dev_mouse_mri_fa_10um',
+        'kim_dev_mouse_mri_mtr_10um',
+        'kim_dev_mouse_mri_t2_10um',
+        'allen_mouse_bluebrain_barrels_10um',
+        'allen_mouse_bluebrain_barrels_25um',
+        'princeton_mouse_20um'
+    ]
 
 def get_java_dependencies():
     """
@@ -31,7 +58,7 @@ def get_java_dependencies():
     """
     return ['net.imagej:imagej:2.15.0',
             'net.imagej:imagej-legacy:1.2.2',
-            'ch.epfl.biop:ImageToAtlasRegister:0.9.6',
+            'ch.epfl.biop:ImageToAtlasRegister:0.9.7',
             'ch.epfl.biop:bigdataviewer-biop-tools:0.10.6',
             'sc.fiji:bigdataviewer-playground:0.10.5',
             'sc.fiji:bigwarp_fiji:9.1.2',
@@ -142,35 +169,10 @@ def add_brainglobe_atlases(ij):
 
     # Specify which atlases are compatible with DeepSlice Mouse and Rat models - this only affects the GUI
     DeepSliceHelper = jimport('ch.epfl.biop.atlas.aligner.DeepSliceHelper')
-    mouse_compatible_atlases = [  # Not sure thew all work!
-        'example_mouse_100um',
-        'allen_mouse_10um',
-        'allen_mouse_25um',
-        'allen_mouse_50um',
-        'allen_mouse_100um',
-        'kim_mouse_10um',
-        'kim_mouse_25um',
-        'kim_mouse_50um',
-        'kim_mouse_100um',
-        'osten_mouse_10um',
-        'osten_mouse_25um',
-        'osten_mouse_50um',
-        'osten_mouse_100um',
-        'perens_lsfm_mouse_20um',
-        'kim_dev_mouse_stp_10um',
-        'kim_dev_mouse_idisco_10um',
-        'kim_dev_mouse_mri_a0_10um',
-        'kim_dev_mouse_mri_adc_10um',
-        'kim_dev_mouse_mri_dwi_10um',
-        'kim_dev_mouse_mri_fa_10um',
-        'kim_dev_mouse_mri_mtr_10um',
-        'kim_dev_mouse_mri_t2_10um',
-        'allen_mouse_bluebrain_barrels_10um',
-        'allen_mouse_bluebrain_barrels_25um',
-        'princeton_mouse_20um'
-    ]
-    for atlas_name in mouse_compatible_atlases:
+
+    for atlas_name in atlases_using_allen_ccfv3_convention:
         DeepSliceHelper.addMouseCompatibleAtlas(JString(atlas_name))
+
     DeepSliceHelper.addRatCompatibleAtlas(JString('whs_sd_rat_39um'))
 
 
