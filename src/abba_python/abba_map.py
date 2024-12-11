@@ -1,10 +1,9 @@
+from brainglobe_atlasapi import BrainGlobeAtlas
 from scyjava import jimport
 from jpype import JImplements, JOverride
 from jpype.types import JString, JDouble, JInt
 
 import numpy as np
-
-import abba
 
 AffineTransform3D = jimport('net.imglib2.realtransform.AffineTransform3D')
 ArrayList = jimport('java.util.ArrayList')
@@ -38,7 +37,7 @@ class AbbaMap(object):
     https://github.com/BIOP/ijp-atlas/blob/main/src/main/java/ch/epfl/biop/atlas/struct/AtlasMap.java
     """
 
-    def __init__(self, bg_atlas, ij):
+    def __init__(self, bg_atlas: BrainGlobeAtlas, ij):
         # this function is called way too many times if I put here the content
         # of initialize... and I don't know why
         # that's why there's this initialize function
@@ -64,14 +63,14 @@ class AbbaMap(object):
         affine_transform = AffineTransform3D()
         affine_transform.scale(JDouble(vox_x_mm), JDouble(vox_y_mm), JDouble(vox_z_mm))
 
-        if atlasName in abba.atlases_using_allen_ccfv3_convention:
-            transform_to_ccfv3 = AffineTransform3D()
-            transform_to_ccfv3.set(
-                JDouble(0), JDouble(0), JDouble(1), JDouble(0),
-                JDouble(0), JDouble(1), JDouble(0), JDouble(0),
-                JDouble(-1), JDouble(0), JDouble(0), JDouble(11.4),
-            )
-            affine_transform = affine_transform.preConcatenate(transform_to_ccfv3)
+        transform_to_asr = AffineTransform3D()
+
+        expected_orientation = "asr"
+        axes_str = self.atlas.orientation
+        if axes_str != expected_orientation:
+            raise ValueError(f"Invalid orientation: expected '{expected_orientation}', but got '{axes_str}'.")
+
+        affine_transform = affine_transform.preConcatenate(transform_to_asr)
 
         # Convert
         reference_sac = array_to_source(self.ij, self.atlas.reference,
@@ -100,18 +99,18 @@ class AbbaMap(object):
         self.maxValues = dict()
         structural_images['reference'] = reference_sac
         print("Max = "+str(np.max(self.atlas.reference)))
-        self.maxValues['reference'] = JDouble(np.max(self.atlas.reference) * 2)
+        self.maxValues['reference'] = JDouble(np.max(self.atlas.reference.astype(np.float64)) * 2)
         for extra_channel in self.atlas.metadata['additional_references']:
             structural_images[extra_channel] = array_to_source(self.ij, self.atlas.additional_references[extra_channel],
                                                                name=self.atlas.atlas_name + '_' + extra_channel,
                                                                transform=affine_transform)
-            self.maxValues[extra_channel] = JDouble(np.max(self.atlas.additional_references[extra_channel]) * 2)
+            self.maxValues[extra_channel] = JDouble(np.max(self.atlas.additional_references[extra_channel].astype(np.float64)) * 2)
         structural_images['borders'] = SourceVoxelProcessor.getBorders(self.annotation_sac)
         self.maxValues['borders'] = 256  # we know this one.
         structural_images['X'] = AtlasHelper.getCoordinateSac(0, JString('X'))
         structural_images['Y'] = AtlasHelper.getCoordinateSac(1, JString('Y'))
         structural_images['Z'] = AtlasHelper.getCoordinateSac(2, JString('Z'))
-        structural_images['Left Right'] = left_right_sac  # return Map<String,SourceAndConverter>
+        structural_images['Left Right'] = left_right_sac
 
         self.atlas_resolution_in__mm = atlas_resolution_in__mm
         self.affine_transform = affine_transform
@@ -139,17 +138,8 @@ class AbbaMap(object):
         return self.atlas_resolution_in__mm
 
     @JOverride
-    def getCoronalTransform(self):
-        if self.atlasName in abba.atlases_using_allen_ccfv3_convention:
-            coronal_transform = AffineTransform3D()
-            coronal_transform.set(
-                JDouble(0), JDouble(0), JDouble(1), JDouble(0),
-                JDouble(0), JDouble(1), JDouble(0), JDouble(0),
-                JDouble(-1), JDouble(0), JDouble(0), JDouble(0),
-            )
-            return coronal_transform
-        else:
-            return AffineTransform3D()
+    def getCoronalTransform(self) -> AffineTransform3D:
+        return AffineTransform3D()
 
     @JOverride
     def getImageMax(self, key):
