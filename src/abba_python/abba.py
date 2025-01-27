@@ -194,11 +194,13 @@ class Abba:
 
         abba_python.ij() returns the current ij instance, which can also be reused in another
         abba_python instance
-
-    slicing_mode :
-        should be 'coronal', 'sagittal' or 'horizontal'
-        TO IMPROVE : test how well this matches with the BrainGlobe API
-
+    x_axis :
+        See https://github.com/BIOP/ijp-imagetoatlas/blob/master/src/main/java/ch/epfl/biop/atlas/aligner/command/ABBAStartCommand.java
+        should be 'AP', 'PA', 'LR', 'RL', 'DV', 'VD'
+    y_axis :
+        should be 'AP', 'PA', 'LR', 'RL', 'DV', 'VD'
+    z_axis :
+        should be 'AP', 'PA', 'LR', 'RL', 'DV', 'VD'
     log_level :
         should be taken within LogLevel literal
 
@@ -210,7 +212,9 @@ class Abba:
             self,
             atlas_name: str = 'Adult Mouse Brain - Allen Brain Atlas V3p1',
             ij=None,
-            slicing_mode: str = 'coronal',  # or sagittal or horizontal
+            x_axis: str = 'RL',
+            y_axis: str = 'SI',
+            z_axis: str = 'AP',
             headless: bool = False,
             print_config: bool = True,
             log_level: LogLevel = 'INFO'
@@ -257,7 +261,9 @@ class Abba:
                 ij.object().addObject(atlas, atlas_name)  # store it in java's object service
 
         self.atlas = Abba.opened_atlases[atlas_name]
-        self.slicing_mode = slicing_mode
+        self.x_axis = x_axis
+        self.y_axis = y_axis
+        self.z_axis = z_axis
         self.atlas_name = atlas_name
 
         # Setting logging options
@@ -272,7 +278,9 @@ class Abba:
             self.print_config()
 
         self.mp = ij.command().run(ABBAStartCommand, True,
-                                   'slicing_mode', self.slicing_mode,
+                                   'x_axis', self.x_axis,
+                                   'y_axis', self.y_axis,
+                                   'z_axis', self.z_axis,
                                    'ba', self.atlas
                                    ).get().getOutput('mp')
 
@@ -1074,6 +1082,21 @@ class Abba:
                                      'angle_degrees', angle_degrees,
                                      'axis_string', axis_string).get()
 
+
+    def set_slices_deselected(self,
+                              slices_csv: str):
+        """
+        Set the slices to deselect.
+
+        Parameters:
+        slices_csv (str): Slices to deselect, '*' for all slices, comma separated, 0-based
+        """
+        SetSlicesDeselectedCommand = jimport('ch.epfl.biop.atlas.aligner.command.SetSlicesDeselectedCommand')
+        return self.ij.command().run(SetSlicesDeselectedCommand, True,
+                                     'mp', self.mp,
+                                     'slices_csv', slices_csv).get()
+
+
     def set_slices_display_range(self,
                                  channels_csv: str,
                                  display_max: float,
@@ -1092,6 +1115,21 @@ class Abba:
                                      'channels_csv', channels_csv,
                                      'display_max', display_max,
                                      'display_min', display_min).get()
+
+
+    def set_slices_selected(self,
+                            slices_csv: str):
+        """
+        Set the slices to select.
+
+        Parameters:
+        slices_csv (str): Slices to select, '*' for all slices, comma separated, 0-based
+        """
+        SetSlicesSelectedCommand = jimport('ch.epfl.biop.atlas.aligner.command.SetSlicesSelectedCommand')
+        return self.ij.command().run(SetSlicesSelectedCommand, True,
+                                     'mp', self.mp,
+                                     'slices_csv', slices_csv).get()
+
 
     def set_slices_thickness(self,
                              thickness_in_micrometer: float):
