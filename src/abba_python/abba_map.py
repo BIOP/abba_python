@@ -17,6 +17,8 @@ RandomAccessibleIntervalSource = jimport('bdv.util.RandomAccessibleIntervalSourc
 Util = jimport('net.imglib2.util.Util')
 SourceAndConverterHelper = jimport('sc.fiji.bdvpg.sourceandconverter.SourceAndConverterHelper')
 
+SourceAndConverterServices = jimport('sc.fiji.bdvpg.services.SourceAndConverterServices')
+ARGBType = jimport('net.imglib2.type.numeric.ARGBType')
 
 def array_to_source(ij, array, name, transform=AffineTransform3D()):
     img = ij.py.to_java(array)
@@ -24,7 +26,11 @@ def array_to_source(ij, array, name, transform=AffineTransform3D()):
     # we supposed it's of dimension 3
     pixel_type = Util.getTypeFromInterval(img)
     rai_source = RandomAccessibleIntervalSource(img, pixel_type, transform, name_java_str)
-    return SourceAndConverterHelper.createSourceAndConverter(rai_source)
+    source = SourceAndConverterHelper.createSourceAndConverter(rai_source)
+    converter_setup = SourceAndConverterServices.getSourceAndConverterService().getConverterSetup(source)
+    # converter_setup.setDisplayRange(JDouble(0),JDouble(200)) <- This won't have any effect, because I think it's overriden after, but the syntax is correct
+    converter_setup.setColor(ARGBType(ARGBType.rgba(255, 255, 255, 255)))
+    return source
 
 @JImplements(AtlasMap)
 class AbbaMap(object):
