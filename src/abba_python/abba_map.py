@@ -2,6 +2,7 @@ from brainglobe_atlasapi import BrainGlobeAtlas
 from scyjava import jimport
 from jpype import JImplements, JOverride
 from jpype.types import JString, JDouble, JInt
+from itertools import zip_longest
 
 import numpy as np
 
@@ -20,7 +21,9 @@ SourceAndConverterHelper = jimport('sc.fiji.bdvpg.sourceandconverter.SourceAndCo
 SourceAndConverterServices = jimport('sc.fiji.bdvpg.services.SourceAndConverterServices')
 ARGBType = jimport('net.imglib2.type.numeric.ARGBType')
 
-def array_to_source(ij, array, name, transform=AffineTransform3D()):
+def array_to_source(ij, array, name,
+                    color=None,
+                    transform=AffineTransform3D()):
     img = ij.py.to_java(array)
     name_java_str = JString(name)
     # we supposed it's of dimension 3
@@ -29,8 +32,14 @@ def array_to_source(ij, array, name, transform=AffineTransform3D()):
     source = SourceAndConverterHelper.createSourceAndConverter(rai_source)
     converter_setup = SourceAndConverterServices.getSourceAndConverterService().getConverterSetup(source)
     # converter_setup.setDisplayRange(JDouble(0),JDouble(200)) <- This won't have any effect, because I think it's overriden after, but the syntax is correct
-    converter_setup.setColor(ARGBType(ARGBType.rgba(255, 255, 255, 255)))
+    if color is None:
+        color = WHITE
+    converter_setup.setColor(ARGBType(color))
     return source
+
+WHITE = ARGBType.rgba(255, 255, 255, 255)
+LIGHT_BLUE = ARGBType.rgba(30, 136, 229, 255)
+ORANGE = ARGBType.rgba(255, 193, 7, 255)
 
 @JImplements(AtlasMap)
 class AbbaMap(object):
@@ -81,6 +90,7 @@ class AbbaMap(object):
         # Convert
         reference_sac = array_to_source(self.ij, self.atlas.reference,
                                         name=self.atlas.atlas_name + '_reference',
+                                        color=LIGHT_BLUE,
                                         transform=affine_transform)
 
         left_right_sac = array_to_source(self.ij, self.atlas.hemispheres,
@@ -106,9 +116,13 @@ class AbbaMap(object):
         structural_images['reference'] = reference_sac
         print("Max = "+str(np.max(self.atlas.reference)))
         self.maxValues['reference'] = JDouble(np.max(self.atlas.reference.astype(np.float64)) * 2)
-        for extra_channel in self.atlas.metadata['additional_references']:
+        for extra_channel, color in zip_longest(self.atlas.metadata['additional_references'], (ORANGE,)):
+            if extra_channel is None:
+                # zip_longest() added a padded value
+                continue
             structural_images[extra_channel] = array_to_source(self.ij, self.atlas.additional_references[extra_channel],
                                                                name=self.atlas.atlas_name + '_' + extra_channel,
+                                                               color=color,
                                                                transform=affine_transform)
             self.maxValues[extra_channel] = JDouble(np.max(self.atlas.additional_references[extra_channel].astype(np.float64)) * 2)
         structural_images['borders'] = SourceVoxelProcessor.getBorders(self.annotation_sac)
