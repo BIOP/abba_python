@@ -66,7 +66,7 @@ def get_java_dependencies():
             'net.imglib2:imglib2-realtransform:4.0.3',
             'com.formdev:flatlaf:3.5.1',
             'ch.epfl.biop:bigdataviewer-image-loaders:0.9.0',
-            'ch.epfl.biop:atlas:0.3.0',
+            'ch.epfl.biop:atlas:0.3.1',
             'org.scijava:scijava-ui-swing:1.0.3',
             'net.imglib2:imglib2:7.1.2',
             'org.janelia.saalfeldlab:n5:3.3.0',
