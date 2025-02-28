@@ -59,7 +59,7 @@ def get_java_dependencies():
     return ['net.imagej:imagej:2.16.0',
             'net.imagej:imagej-legacy:2.0.0',
             'ch.epfl.biop:ijl-utilities-wrappers:0.11.2',
-            'ch.epfl.biop:ImageToAtlasRegister:0.10.3',
+            'ch.epfl.biop:ImageToAtlasRegister:0.10.4',
             'ch.epfl.biop:bigdataviewer-biop-tools:0.11.0',
             'sc.fiji:bigdataviewer-playground:0.11.1',
             'sc.fiji.bigdataviewer:bigdataviewer-playground-display:0.5.0',
