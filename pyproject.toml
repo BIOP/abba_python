@@ -35,7 +35,7 @@ classifiers = [
 ]
 # add your package dependencies here
 dependencies = [
-    "pyimage",
+    "pyimagej",
     "brainglobe-atlasapi"
 ]
 
