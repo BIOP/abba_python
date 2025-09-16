@@ -25,9 +25,9 @@ With ABBA Python, you can control ABBA API from python, and get some additional 
 2. Create a conda environment with Python 3.10, pyimagej, OpenJDK 11 and maven and activate it
 3. Install abba_python
 ```
-conda create -c conda-forge -n abba-env python=3.10 openjdk=11 pip maven pyimagej
+mamba create -c conda-forge -n abba-env python=3.10 openjdk=11 pip maven pyimagej
 
-conda activate abba-env
+mamba activate abba-env
 
 pip install abba_python
 ```
@@ -73,8 +73,8 @@ To install DeepSlice, please refer to the documentation.
 In Sept 2023, this was working:
 
 ```
-conda create -n deepslice python=3.7
-conda activate deepslice
+mamba create -n deepslice python=3.7
+mamba activate deepslice
 conda install pip
 pip install DeepSlice==1.1.5
 pip install urllib3==1.26.6 # see https://github.com/PolarBean/DeepSlice/issues/46
