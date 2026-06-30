@@ -164,6 +164,12 @@ class Abba:
                 # Any other name is delegated to the BrainGlobe atlas loader on the
                 # Java side, which manages its own Python environment (via Appose)
                 # to download and parse the atlas.
+                # BrainGlobeAtlas.initialize() resolves the SciJava context through
+                # AtlasLocationHelper.getContext() (to build the atlas sources). That
+                # context is normally set by the GUI's AtlasChooserCommand; since we
+                # bypass it here, we set it ourselves to avoid a NullPointerException.
+                AtlasLocationHelper = jimport('ch.epfl.biop.atlas.AtlasLocationHelper')
+                AtlasLocationHelper.setContext(ij.context())
                 BrainGlobeAtlas = jimport('ch.epfl.biop.atlas.brainglobe.BrainGlobeAtlas')
                 atlas = BrainGlobeAtlas(atlas_name)
                 atlas.initialize(None, None)
@@ -239,8 +245,8 @@ class Abba:
 
                 @JOverride
                 def run(self):
-                    DefaultBdvSupplier = jimport('sc.fiji.bdvpg.bdv.supplier.DefaultBdvSupplier')
-                    SerializableBdvOptions = jimport('sc.fiji.bdvpg.bdv.supplier.SerializableBdvOptions')
+                    DefaultBdvSupplier = jimport('sc.fiji.bdvpg.viewer.bdv.supplier.DefaultBdvSupplier')
+                    SerializableBdvOptions = jimport('sc.fiji.bdvpg.viewer.bdv.supplier.SerializableBdvOptions')
                     BdvMultislicePositionerView = jimport(
                         'ch.epfl.biop.atlas.aligner.gui.bdv.BdvMultislicePositionerView')
                     bdvh = DefaultBdvSupplier(SerializableBdvOptions()).get()
