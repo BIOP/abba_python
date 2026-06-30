@@ -28,7 +28,7 @@ def main():
     abba.benchmark(comment="Benchmark from PyimageJ",
                    demo_dataset="25 sections",
                    use_gui=True,
-                   wait_betweem_each_step=True)
+                   wait_between_each_step=True)
 
     while jpype.isJVMStarted():
         time.sleep(1)

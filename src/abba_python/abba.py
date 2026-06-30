@@ -332,7 +332,7 @@ class Abba:
                    comment: str,
                    demo_dataset: str,
                    use_gui: bool,
-                   wait_betweem_each_step: bool):
+                   wait_between_each_step: bool):
         """
         Complete ABBA process in a benchmark
 
@@ -340,14 +340,14 @@ class Abba:
         comment (str):
         demo_dataset (str):
         use_gui (bool): Use graphical user interface
-        wait_betweem_each_step (bool):
+        wait_between_each_step (bool):
         """
         ABBABenchMarkCommand = jimport('ch.epfl.biop.atlas.aligner.command.ABBABenchMarkCommand')
         return self.ij.command().run(ABBABenchMarkCommand, True,
                                      'comment', comment,
                                      'demo_dataset', demo_dataset,
                                      'use_gui', use_gui,
-                                     'wait_betweem_each_step', wait_betweem_each_step).get()
+                                     'wait_between_each_step', wait_between_each_step).get()
 
     def check_for_update(self):
         """
@@ -733,9 +733,9 @@ class Abba:
                                      'resolution_level', resolution_level).get()
 
 
-    def import_demo_slices(self,
-                           demo_dataset: str,
-                           project_directory):
+    def import_demo_slices_omero(self,
+                                     demo_dataset: str,
+                                     project_directory):
         """
         Open a set of demo brain sections
 
@@ -743,11 +743,25 @@ class Abba:
         demo_dataset (str): Choose the number of sections to import
         project_directory : Target directory for QuPath project (not required)
         """
-        ImportDemoSlicesCommand = jimport('ch.epfl.biop.atlas.aligner.command.ImportDemoSlicesCommand')
-        return self.ij.command().run(ImportDemoSlicesCommand, True,
+        ImportDemoSlicesOMEROCommand = jimport('ch.epfl.biop.atlas.aligner.command.ImportDemoSlicesOMEROCommand')
+        return self.ij.command().run(ImportDemoSlicesOMEROCommand, True,
                                      'mp', self.mp,
                                      'demo_dataset', demo_dataset,
                                      'project_directory', project_directory).get()
+
+
+    def import_demo_slices_zenodo(self,
+                                       number_of_slides: int):
+        """
+        Open a set of demo brain sections
+
+        Parameters:
+        number_of_slides (int): Number of slides to use (7 max)
+        """
+        ImportDemoSlicesZENODOCommand = jimport('ch.epfl.biop.atlas.aligner.command.ImportDemoSlicesZENODOCommand')
+        return self.ij.command().run(ImportDemoSlicesZENODOCommand, True,
+                                     'mp', self.mp,
+                                     'number_of_slides', number_of_slides).get()
 
 
     def import_slice_from_image_plus(self,
@@ -941,14 +955,14 @@ class Abba:
                                      'model_slice_index', model_slice_index,
                                      'skip_pre_transform', skip_pre_transform).get()
 
-    def register_slices_deepslice_local(self,
-                                        allow_slicing_angle_change: bool,
-                                        channels: str,
-                                        ensemble: bool,
-                                        model: str,
-                                        post_processing: str,
-                                        px_size_micron: float,
-                                        slices_spacing_micrometer: float):
+    def register_slices_deepslice(self,
+                                         allow_slicing_angle_change: bool,
+                                         channels: str,
+                                         ensemble: bool,
+                                         model: str,
+                                         post_processing: str,
+                                         px_size_micron: float,
+                                         slices_spacing_micrometer: float):
         """
         Uses Deepslice for affine in plane and axial registration of selected slices
 
@@ -961,9 +975,9 @@ class Abba:
         px_size_micron (float): Resampling pixel size (10 for mouse, 40 for rat)
         slices_spacing_micrometer (float): Spacing (micrometer), used only when 'Keep order + set spacing' is selected
         """
-        RegisterSlicesDeepSliceLocalCommand = jimport(
-            'ch.epfl.biop.atlas.aligner.command.RegisterSlicesDeepSliceLocalCommand')
-        return self.ij.command().run(RegisterSlicesDeepSliceLocalCommand, True,
+        RegisterSlicesDeepSliceApposeCommand = jimport(
+            'ch.epfl.biop.atlas.aligner.command.RegisterSlicesDeepSliceApposeCommand')
+        return self.ij.command().run(RegisterSlicesDeepSliceApposeCommand, True,
                                      'mp', self.mp,
                                      'allow_slicing_angle_change', allow_slicing_angle_change,
                                      'channels', channels,
