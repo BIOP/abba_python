@@ -4,12 +4,6 @@
 import os
 import time
 
-# BrainGlobe
-from brainglobe_atlasapi import BrainGlobeAtlas
-from brainglobe_atlasapi.list_atlases import get_all_atlases_lastversions, get_downloaded_atlases, \
-    get_local_atlas_version
-from brainglobe_atlasapi.utils import check_internet_connection
-
 # PyImageJ / Scyjava
 from scyjava import jimport
 import imagej
@@ -21,33 +15,6 @@ from typing import Literal
 
 LogLevel = Literal['OFF', 'DEBUG', 'INFO']
 
-atlases_using_allen_ccfv3_convention = [
-        'example_mouse_100um',
-        'allen_mouse_10um',
-        'allen_mouse_25um',
-        'allen_mouse_50um',
-        'allen_mouse_100um',
-        'kim_mouse_10um',
-        'kim_mouse_25um',
-        'kim_mouse_50um',
-        'kim_mouse_100um',
-        'osten_mouse_10um',
-        'osten_mouse_25um',
-        'osten_mouse_50um',
-        'osten_mouse_100um',
-        'perens_lsfm_mouse_20um',
-        'kim_dev_mouse_stp_10um',
-        'kim_dev_mouse_idisco_10um',
-        'kim_dev_mouse_mri_a0_10um',
-        'kim_dev_mouse_mri_adc_10um',
-        'kim_dev_mouse_mri_dwi_10um',
-        'kim_dev_mouse_mri_fa_10um',
-        'kim_dev_mouse_mri_mtr_10um',
-        'kim_dev_mouse_mri_t2_10um',
-        'allen_mouse_bluebrain_barrels_10um',
-        'allen_mouse_bluebrain_barrels_25um',
-        'princeton_mouse_20um'
-    ]
 
 def get_java_dependencies():
     """
@@ -56,29 +23,14 @@ def get_java_dependencies():
     these jars should be available in https://maven.scijava.org/
     :return:
     """
-    return ['net.imagej:imagej:2.16.0',
-            'net.imagej:imagej-legacy:2.0.0',
-            'ch.epfl.biop:ijl-utilities-wrappers:0.11.5',
-            'ch.epfl.biop:ImageToAtlasRegister:0.11.0',
-            'ch.epfl.biop:bigdataviewer-biop-tools:0.13.4',
-            'sc.fiji:bigdataviewer-playground:0.12.0',
-            'sc.fiji.bigdataviewer:bigdataviewer-playground-display:0.5.0',
-            'sc.fiji:bigwarp_fiji:9.3.1',
-            'net.imglib2:imglib2-realtransform:4.0.3',
+    return ['ch.epfl.biop:ijl-utilities-wrappers:0.12.1',
+            'ch.epfl.biop:ImageToAtlasRegister:0.20.0',
+            'ch.epfl.biop:bigdataviewer-biop-tools:0.21.0',
+            'sc.fiji:bigdataviewer-playground:0.21.0',
+            'sc.fiji.bigdataviewer:bigdataviewer-playground-display:0.20.1',
             'com.formdev:flatlaf:3.5.1',
-            'ch.epfl.biop:bigdataviewer-image-loaders:0.11.2',
-            'ch.epfl.biop:atlas:0.3.2',
-            'org.scijava:scijava-ui-swing:1.0.3',
-            'net.imglib2:imglib2:7.1.4',
-            'org.janelia.saalfeldlab:n5:3.5.1',
-            'org.janelia.saalfeldlab:n5-blosc:1.1.1',
-            'org.janelia.saalfeldlab:n5-ij:4.4.1',
-            # 'org.janelia.saalfeldlab:n5 - imglib2:',
-            'org.janelia.saalfeldlab:n5-aws-s3:4.3.0',
-            'org.janelia.saalfeldlab:n5-google-cloud:5.1.0',
-            'org.janelia.saalfeldlab:n5-viewer_fiji:6.1.2',
-            'org.janelia.saalfeldlab:n5-zarr:1.5.1',
-            'org.janelia.saalfeldlab:n5-universe:2.3.0',
+            'ch.epfl.biop:bigdataviewer-image-loaders:0.21.1',
+            'ch.epfl.biop:atlas:0.4.0'
             ]
 
 
@@ -89,7 +41,6 @@ def start_imagej(headless: bool = False,
     if not headless:
         mode = "interactive"
     ij = imagej.init(get_java_dependencies(), mode=mode)
-    add_brainglobe_atlases(ij)
 
     from scyjava import jimport
     from jpype.types import JString
@@ -124,57 +75,9 @@ def start_imagej(headless: bool = False,
 
     # Adds Python information to ABBA help command
     ABBAForumHelpCommand = jimport('ch.epfl.biop.atlas.aligner.command.ABBAForumHelpCommand')
-    from importlib.metadata import version
-    python_info = 'ABBA Python ' + str(version("abba-python"))
+    from abba_python import __version__
+    python_info = 'ABBA Python ' + str(__version__)
     ABBAForumHelpCommand.pythonInformation = JString(python_info)
-
-
-def add_brainglobe_atlases(ij):
-    # TODO : check connection available or not
-    try:
-        check_internet_connection()
-        available_atlases = get_all_atlases_lastversions()
-    except ConnectionError:
-        available_atlases_nodict = get_downloaded_atlases()
-        available_atlases = dict()
-        for atlas in available_atlases_nodict:
-            print(atlas)
-            available_atlases[atlas] = get_local_atlas_version(atlas)
-
-    AtlasChooserCommand = jimport('ch.epfl.biop.atlas.scijava.AtlasChooserCommand')
-
-    from jpype import JImplements, JOverride, JString
-    Supplier = jimport('java.util.function.Supplier')
-
-    # initialized
-
-    @JImplements(Supplier)
-    class AtlasSupplier(object):
-
-        def __init__(self, atlas_name, ij):
-            self.atlas_name = atlas_name
-            self.ij = ij
-
-        @JOverride
-        def get(self):
-            bg_atlas = BrainGlobeAtlas(self.atlas_name)
-            from abba_python.abba_atlas import AbbaAtlas
-            # from
-            current_atlas = AbbaAtlas(bg_atlas, self.ij)
-            current_atlas.initialize(None, None)
-            Abba.opened_atlases[self.atlas_name] = current_atlas
-            return current_atlas
-
-    for atlas_name in available_atlases.keys():
-        AtlasChooserCommand.registerAtlas(atlas_name, AtlasSupplier(atlas_name, ij))
-
-    # Specify which atlases are compatible with DeepSlice Mouse and Rat models - this only affects the GUI
-    DeepSliceHelper = jimport('ch.epfl.biop.atlas.aligner.DeepSliceHelper')
-
-    for atlas_name in atlases_using_allen_ccfv3_convention:
-        DeepSliceHelper.addMouseCompatibleAtlas(JString(atlas_name))
-
-    DeepSliceHelper.addRatCompatibleAtlas(JString('whs_sd_rat_39um'))
 
 
 class Abba:
@@ -258,10 +161,11 @@ class Abba:
                 atlas = ij.command().run(AllenBrainAdultMouseAtlasCCF2017v3p1ASRCommand, True).get().getOutput("ba")
                 Abba.opened_atlases[atlas_name] = atlas
             else:
-                bg_atlas = BrainGlobeAtlas(atlas_name)
-                # initialized
-                from abba_python.abba_atlas import AbbaAtlas
-                atlas = AbbaAtlas(bg_atlas, ij)
+                # Any other name is delegated to the BrainGlobe atlas loader on the
+                # Java side, which manages its own Python environment (via Appose)
+                # to download and parse the atlas.
+                BrainGlobeAtlas = jimport('ch.epfl.biop.atlas.brainglobe.BrainGlobeAtlas')
+                atlas = BrainGlobeAtlas(atlas_name)
                 atlas.initialize(None, None)
                 Abba.opened_atlases[atlas_name] = atlas
                 ij.object().addObject(atlas, atlas_name)  # store it in java's object service
@@ -300,33 +204,15 @@ class Abba:
         print(self.get_elastix_path())
         print('- Transformix path:')
         print(self.get_transformix_path())
-        print('- DeepSlice conda environment:')
-        print(self.get_deepslice_env()[0] + ' v' + self.get_deepslice_env()[1])
 
     def set_atlas_cache_dir(self, atlas_dir: str):
-        # For atlases on the Java side
         File = jimport('java.io.File')
         AtlasLocationHelper = jimport('ch.epfl.biop.atlas.AtlasLocationHelper')
         AtlasLocationHelper.defaultCacheDir = File(JString(atlas_dir))
-        # For atlases on the brainglobe side
-        print('TODO : need to set the brainglobe dir as well. If you know how to do it, please contribute to '
-              'abba_python to add this!')
 
     def get_atlas_cache_dir(self) -> str:
         AtlasLocationHelper = jimport('ch.epfl.biop.atlas.AtlasLocationHelper')
         return str(AtlasLocationHelper.getAtlasCacheDir())
-
-    def set_deepslice_env(self, deepslice_env_path: str, deepslice_version: str):
-        if not os.path.exists(deepslice_env_path):
-            raise FileNotFoundError(f"'{deepslice_env_path}' is not a valid folder.")
-        File = jimport('java.io.File')
-        DeepSlice = jimport('ch.epfl.biop.wrappers.deepslice.DeepSlice')
-        DeepSlice.setEnvDirPath(File(deepslice_env_path))
-        DeepSlice.setVersion(deepslice_version)  # not autodetected. Do not matter for 1.1.5, but may matter later
-
-    def get_deepslice_env(self) -> [str, str]:
-        DeepSlice = jimport('ch.epfl.biop.wrappers.deepslice.DeepSlice')
-        return [str(DeepSlice.envDirPath), str(DeepSlice.version)]
 
     def set_elastix_path(self, elastix_path: str):
         if not os.path.isfile(elastix_path):

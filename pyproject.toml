@@ -35,8 +35,7 @@ classifiers = [
 ]
 # add your package dependencies here
 dependencies = [
-    "pyimagej",
-    "brainglobe-atlasapi"
+    "pyimagej"
 ]
 
 # https://peps.python.org/pep-0621/#dependencies-optional-dependencies

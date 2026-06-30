@@ -64,26 +64,7 @@ ABBA's automated in-plane registration relies on [elastix 5.2.0](https://github.
 
 ## DeepSlice
 
-ABBA can leverage the deep-learning registration tool [DeepSlice](https://github.com/PolarBean/DeepSlice), either through the web interface (in the GUI) or by running it locally. To use DeepSlice locally, you must install it in a separate conda environment and specify its path to ABBA, either through the GUI or the API (as explained in the [first example notebook](example_notebooks/0.%20Register%20And%20Save%20State.ipynb)) (NOTE: NO NOTEBOOK IS CURRENTLY AVAILABLE, see https://github.com/BIOP/abba_python/issues/14).
-
-Note that DeepSlice can also be used locally with the pure Java version thanks to this (new) design.
-
-To install DeepSlice, please refer to the documentation.
-
-In Sept 2023, this was working:
-
-```
-mamba create -n deepslice python=3.7
-mamba activate deepslice
-conda install pip
-pip install DeepSlice==1.1.5
-pip install urllib3==1.26.6 # see https://github.com/PolarBean/DeepSlice/issues/46
-```
-
-You also need to make conda available at the system level:
-You need to follow this two steps procedure to enable Windows to use conda from cmd.exe:
-* Into the environment variable, edit PATH, add path to your ..\Anaconda3\condabin default would be C:\ProgramData\Anaconda3\condabin
-* Open a new PowerShell (and/or PowerShell (x86) ), run the following command once to initialize conda:  `conda init`
+ABBA can leverage the deep-learning registration tool [DeepSlice](https://github.com/PolarBean/DeepSlice), either through the web interface or by running it locally. Local DeepSlice is now bundled on the Java side: ABBA manages its own Python environment (via Appose) and installs DeepSlice automatically the first time you run a local DeepSlice registration. No separate conda environment or path configuration is required anymore.
 
 # Note on versions
 
