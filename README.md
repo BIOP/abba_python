@@ -14,59 +14,85 @@ Aligning Big Brains and Atlases (ABBA), controlled from python.
 
 Aligning Big Brains & Atlases, abbreviated as ABBA, allows you to register thin serial sections to multiple atlases in coronal, sagittal, and horizontal orientations. It is mainly a Java application, but this repo makes all of its API accessible in Python.
 
-With ABBA Python, you can control ABBA API from python, and get some additional perks. In particular, you get access to all [BrainGlobe atlases](https://brainglobe.info/documentation/brainglobe-atlasapi/usage/atlas-details.html).
+With ABBA Python, you can control the ABBA API from Python.
 
 > [!WARNING]
-> Due to some threading issues, the GUI does not work with MacOSX
+> Due to some threading issues, the GUI does not work with macOS. On macOS, use the regular [Fiji](https://fiji.sc) installation of ABBA instead — it already includes access to all BrainGlobe atlases.
+
+# Requirements
+
+`abba-python` is a thin Python wrapper around the Java ABBA application. At runtime the Java dependencies are fetched from Maven, so you need three things on your machine:
+
+- **Python** 3.9–3.12
+- **OpenJDK 11** — ideally from conda-forge, to avoid [certificate issues](https://pyimagej.readthedocs.io/en/latest/Troubleshooting.html#unable-to-find-valid-certification-path) when downloading jars and atlases
+- **Maven** — used by [PyImageJ](https://pyimagej.readthedocs.io)/scyjava to resolve the ABBA jars on the first run
+
+The automated registration tools (elastix/transformix, local DeepSlice) and BrainGlobe atlas downloads are handled by ABBA itself: it provisions its own isolated Python environments on demand (via [Appose](https://github.com/apposed/appose)). You do **not** need to install elastix, DeepSlice or `brainglobe-atlasapi` yourself.
+
+# Installation
+
+## With pixi (recommended)
+
+[pixi](https://pixi.sh) is a modern, lockfile-based package manager that can pull `openjdk` and `maven` from conda-forge alongside the Python dependencies:
+
+```
+pixi init abba-project
+cd abba-project
+pixi add python=3.10 openjdk=11 maven pyimagej
+pixi add --pypi abba-python
+```
+
+Run Python inside the project with `pixi run python` (or `pixi shell` to activate the environment).
+
+## With conda / mamba
+
+Using [miniforge](https://github.com/conda-forge/miniforge):
+
+```
+mamba create -c conda-forge -n abba-env python=3.10 openjdk=11 pip maven pyimagej
+mamba activate abba-env
+pip install abba-python
+```
+
+## A note on uv
+
+[uv](https://docs.astral.sh/uv) only manages Python and PyPI packages — it cannot provide the JDK and Maven that ABBA needs, and a non-conda-forge JDK is prone to the certificate issues mentioned above. If you really want to use uv, you must install OpenJDK 11 and Maven yourself (and make them available on `PATH`) before `uv pip install abba-python`. For most users `pixi` is the simpler choice.
 
 # Getting started
 
-1. Install [miniforge](https://docs.conda.io/projects/miniconda/en/latest/miniconda-install.html) or [miniforge](https://github.com/conda-forge/miniforge).
-2. Create a conda environment with Python 3.10, pyimagej, OpenJDK 11 and maven and activate it
-3. Install abba_python
-```
-mamba create -c conda-forge -n abba-env python=3.10 openjdk=11 pip maven pyimagej
+## Graphical user interface (GUI)
 
-mamba activate abba-env
+In your environment, launch Python and run:
 
-pip install abba_python
-```
-
-
-## To begin using ABBA with a graphical user interface (GUI):
-
-In the created environment, launch Python and run the following commands:
-
-```
+```python
 from abba_python import abba
 abba.start_imagej()
 ```
 
-You can then use ABBA within Fiji.
-ABBA is typically used in conjunction with [QuPath](https://qupath.github.io/): a QuPath project can serve as input for ABBA, and the registration results can be imported back into QuPath for further processing.
+You can then use ABBA within Fiji. ABBA is typically used together with [QuPath](https://qupath.github.io/): a QuPath project can serve as input for ABBA, and the registration results can be imported back into QuPath for further processing.
 
-## To begin with ABBA with jupyter lab
+## Python API
 
-In the created environment, install `jupyterlab` and `ipywidgets`:
+The `Abba` object drives a registration session programmatically. Any [BrainGlobe atlas](https://brainglobe.info/documentation/brainglobe-atlasapi/usage/atlas-details.html) name works, as well as the built-in Java atlases (`'Adult Mouse Brain - Allen Brain Atlas V3p1'`, `'Rat - Waxholm Sprague Dawley V4p2'`):
+
+```python
+from abba_python.abba import Abba
+
+# 'example_mouse_100um' is the small BrainGlobe demo atlas — quick to download
+abba = Abba('example_mouse_100um')
+abba.show_bdv_ui()  # opens a BigDataViewer window
+```
+
+See the [`examples/`](examples) folder for runnable scripts (`demo_brainglobe.py`, `demo_api.py`, `demo_bench.py`, `demo_gui.py`).
+
+## Jupyter lab
 
 ```
-pip install jupyterlab
-pip install ipywidgets
+pixi add jupyterlab ipywidgets   # or: pip install jupyterlab ipywidgets
 ```
 
-You can now run `jupyter lab` and start using notebooks, like the ones provided in examples in the gitHub repo.
-
-# Extra registration tools
-
-## Elastix/Transformix
-
-ABBA's automated in-plane registration relies on [elastix](https://github.com/SuperElastix/elastix). You no longer need to install elastix and transformix yourself: ABBA manages its own Python environment (via Appose) and provisions them automatically, so no path configuration is required.
-
-## DeepSlice
-
-ABBA can leverage the deep-learning registration tool [DeepSlice](https://github.com/PolarBean/DeepSlice), either through the web interface or by running it locally. Local DeepSlice is now bundled on the Java side: ABBA manages its own Python environment (via Appose) and installs DeepSlice automatically the first time you run a local DeepSlice registration. No separate conda environment or path configuration is required anymore.
+You can then run `jupyter lab` and use notebooks.
 
 # Note on versions
 
-OpenJDK versions above 8 can work, but they have been less tested, so there may be unexpected bugs. To avoid [certificate issues](https://pyimagej.readthedocs.io/en/latest/Troubleshooting.html#unable-to-find-valid-certification-path), it is mandatory to have openjdk installed from conda-forge.
-
+OpenJDK 11 is recommended. Versions above 11 may work but are less tested, so there may be unexpected bugs. To avoid [certificate issues](https://pyimagej.readthedocs.io/en/latest/Troubleshooting.html#unable-to-find-valid-certification-path), install OpenJDK from conda-forge (pixi and mamba both do this).
