@@ -56,11 +56,11 @@ pip install ipywidgets
 
 You can now run `jupyter lab` and start using notebooks, like the ones provided in examples in the gitHub repo.
 
-# Installing extra modules
+# Extra registration tools
 
 ## Elastix/Transformix
 
-ABBA's automated in-plane registration relies on [elastix 5.2.0](https://github.com/SuperElastix/elastix). To utilize all of ABBA's functionalities, you need to separately install elastix and transformix on your operating system. During the initial run of ABBA, you will be prompted to specify their executable locations. Alternatively, you can set their paths using the API (refer to the [first example notebook](example_notebooks/0.%20Register%20And%20Save%20State.ipynb)) (NOTE: NO NOTEBOOK IS CURRENTLY AVAILABLE, see https://github.com/BIOP/abba_python/issues/14).
+ABBA's automated in-plane registration relies on [elastix](https://github.com/SuperElastix/elastix). You no longer need to install elastix and transformix yourself: ABBA manages its own Python environment (via Appose) and provisions them automatically, so no path configuration is required.
 
 ## DeepSlice
 

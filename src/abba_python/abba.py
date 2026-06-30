@@ -200,10 +200,6 @@ class Abba:
         print(get_java_dependencies())
         print('- Atlas cache folder:')
         print(self.get_atlas_cache_dir())
-        print('- Elastix path:')
-        print(self.get_elastix_path())
-        print('- Transformix path:')
-        print(self.get_transformix_path())
 
     def set_atlas_cache_dir(self, atlas_dir: str):
         File = jimport('java.io.File')
@@ -213,28 +209,6 @@ class Abba:
     def get_atlas_cache_dir(self) -> str:
         AtlasLocationHelper = jimport('ch.epfl.biop.atlas.AtlasLocationHelper')
         return str(AtlasLocationHelper.getAtlasCacheDir())
-
-    def set_elastix_path(self, elastix_path: str):
-        if not os.path.isfile(elastix_path):
-            raise FileNotFoundError(f"'{elastix_path}' is not a valid file.")
-        File = jimport('java.io.File')
-        Elastix = jimport('ch.epfl.biop.wrappers.elastix.Elastix')
-        Elastix.setExePath(File(elastix_path))
-
-    def get_elastix_path(self) -> str:
-        Elastix = jimport('ch.epfl.biop.wrappers.elastix.Elastix')
-        return str(Elastix.exePath)
-
-    def set_transformix_path(self, transformix_path: str):
-        if not os.path.isfile(transformix_path):
-            raise FileNotFoundError(f"'{transformix_path}' is not a valid file.")
-        File = jimport('java.io.File')
-        Transformix = jimport('ch.epfl.biop.wrappers.transformix.Transformix')
-        Transformix.setExePath(File(transformix_path))
-
-    def get_transformix_path(self) -> str:
-        Transformix = jimport('ch.epfl.biop.wrappers.transformix.Transformix')
-        return str(Transformix.exePath)
 
     def get_ij(self):
         """
