@@ -67,7 +67,7 @@ def start_imagej(headless: bool = False,
             # directory already exists ?
             pass
     else:
-        print('ERROR! ' + platform.system() + ' OS not tested.')
+        print('[WARNING] Support for third-party brain atlases through BrainGlobe is primarily tested on Windows. If you encounter any OS-specific issues on ' + platform.system() + ', please report them to the developers: https://github.com/BIOP/abba_python/issues')
     pass
 
     if not headless:
