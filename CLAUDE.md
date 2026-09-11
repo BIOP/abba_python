@@ -23,13 +23,17 @@ This package cannot run from pip alone — it needs a JDK + Maven on the system
 because PyImageJ resolves Java dependencies at import time. Use conda:
 
 ```
-mamba create -c conda-forge -n abba-env python=3.10 openjdk=11 pip maven pyimagej
+mamba create -c conda-forge -n abba-env python=3.10 openjdk=21 pip maven pyimagej
 mamba activate abba-env
 pip install -e .[test,dev]
 ```
 
-OpenJDK 11 from conda-forge is required (8 also works; >11 less tested). Installing
-the JDK any other way causes TLS certificate failures when fetching atlases/jars.
+Java 21 is required: the ABBA jars (0.23.x) are compiled for Java 21 (class file
+version 65) and fail with `UnsupportedClassVersionError` on older JVMs. Installing
+the JDK other than from conda-forge causes TLS certificate failures when fetching
+atlases/jars. Note that scyjava ≥1.12 defaults to *downloading* its own Zulu JRE
+(`fetch="always"`, version 11) and ignores the conda JDK; `configure_java()` in
+`abba.py` overrides that version to `JAVA_VERSION` before every `imagej.init`.
 
 ## Common commands
 
@@ -55,9 +59,10 @@ in `get_java_dependencies()` in `src/abba_python/abba.py` as a list of Maven GAV
 coordinates — **this is where Java-side versions are bumped** (e.g. when releasing
 against a new `ch.epfl.biop:ImageToAtlasRegister`). Keep these versions mutually
 compatible; a mismatch surfaces only at runtime as Java `NoSuchMethodError`/linkage
-errors, not at install.
+errors, not at install. If a bump raises the Java bytecode level, also bump
+`JAVA_VERSION` next to it (otherwise: `UnsupportedClassVersionError` at startup).
 
-Two entry points create the JVM:
+Two entry points create the JVM (both call `configure_java()` first):
 - `start_imagej()` — launches Fiji with the full ABBA GUI (sets the Windows atlas
   cache dir under `%ProgramData%/abba-atlas`). BrainGlobe atlas discovery for the GUI
   chooser is now done Java-side, so no Python-side atlas registration happens here.

@@ -24,7 +24,7 @@ With ABBA Python, you can control the ABBA API from Python.
 `abba-python` is a thin Python wrapper around the Java ABBA application. At runtime the Java dependencies are fetched from Maven, so you need three things on your machine:
 
 - **Python** 3.9–3.12
-- **OpenJDK 11** — ideally from conda-forge, to avoid [certificate issues](https://pyimagej.readthedocs.io/en/latest/Troubleshooting.html#unable-to-find-valid-certification-path) when downloading jars and atlases
+- **OpenJDK 21** — ideally from conda-forge, to avoid [certificate issues](https://pyimagej.readthedocs.io/en/latest/Troubleshooting.html#unable-to-find-valid-certification-path) when downloading jars and atlases
 - **Maven** — used by [PyImageJ](https://pyimagej.readthedocs.io)/scyjava to resolve the ABBA jars on the first run
 
 The automated registration tools (elastix/transformix, local DeepSlice) and BrainGlobe atlas downloads are handled by ABBA itself: it provisions its own isolated Python environments on demand (via [Appose](https://github.com/apposed/appose)). You do **not** need to install elastix, DeepSlice or `brainglobe-atlasapi` yourself.
@@ -38,7 +38,7 @@ The automated registration tools (elastix/transformix, local DeepSlice) and Brai
 ```
 pixi init abba-project
 cd abba-project
-pixi add python=3.10 openjdk=11 maven pyimagej
+pixi add python=3.10 openjdk=21 maven pyimagej
 pixi add --pypi abba-python
 ```
 
@@ -49,14 +49,14 @@ Run Python inside the project with `pixi run python` (or `pixi shell` to activat
 Using [miniforge](https://github.com/conda-forge/miniforge):
 
 ```
-mamba create -c conda-forge -n abba-env python=3.10 openjdk=11 pip maven pyimagej
+mamba create -c conda-forge -n abba-env python=3.10 openjdk=21 pip maven pyimagej
 mamba activate abba-env
 pip install abba-python
 ```
 
 ## A note on uv
 
-[uv](https://docs.astral.sh/uv) only manages Python and PyPI packages — it cannot provide the JDK and Maven that ABBA needs, and a non-conda-forge JDK is prone to the certificate issues mentioned above. If you really want to use uv, you must install OpenJDK 11 and Maven yourself (and make them available on `PATH`) before `uv pip install abba-python`. For most users `pixi` is the simpler choice.
+[uv](https://docs.astral.sh/uv) only manages Python and PyPI packages — it cannot provide the JDK and Maven that ABBA needs, and a non-conda-forge JDK is prone to the certificate issues mentioned above. If you really want to use uv, you must install OpenJDK 21 and Maven yourself (and make them available on `PATH`) before `uv pip install abba-python`. For most users `pixi` is the simpler choice.
 
 # Getting started
 
@@ -95,4 +95,4 @@ You can then run `jupyter lab` and use notebooks.
 
 # Note on versions
 
-OpenJDK 11 is recommended. Versions above 11 may work but are less tested, so there may be unexpected bugs. To avoid [certificate issues](https://pyimagej.readthedocs.io/en/latest/Troubleshooting.html#unable-to-find-valid-certification-path), install OpenJDK from conda-forge (pixi and mamba both do this).
+Java 21 is required: ABBA's jars are compiled for Java 21 and fail to load on older versions (`UnsupportedClassVersionError`). `abba-python` asks scyjava for Java 21 before starting the JVM (see `JAVA_VERSION` in `abba.py`). To avoid [certificate issues](https://pyimagej.readthedocs.io/en/latest/Troubleshooting.html#unable-to-find-valid-certification-path), install OpenJDK from conda-forge (pixi and mamba both do this).
