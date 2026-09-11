@@ -19,21 +19,30 @@ subprocess env), so that bridge and the `brainglobe-atlasapi` dependency were re
 
 ## Environment setup
 
-This package cannot run from pip alone — it needs a JDK + Maven on the system
-because PyImageJ resolves Java dependencies at import time. Use conda:
+No JDK or Maven install is needed — a plain venv works (conda is fine too):
 
 ```
-mamba create -c conda-forge -n abba-env python=3.10 openjdk=21 pip maven pyimagej
-mamba activate abba-env
-pip install -e .[test,dev]
+uv venv --python 3.12
+uv pip install -e .[test,dev]
 ```
+
+This relies on `pyimagej>=1.8.0` (→ `scyjava>=1.12.4`, `jgo>=2.1`): scyjava downloads
+a Zulu JRE through cjdk (default `fetch="always"`, so any system/conda JDK is
+ignored) and jgo resolves the Maven jars in pure Python. Verified by starting ABBA
+headless with no `mvn`/`java` on `PATH` and an empty `~/.m2`. pyimagej 1.7.x
+still works without Maven (scyjava fetches one) but fails with
+`JVMNotFoundException` unless a JDK is installed, because it probes the Java
+version before scyjava fetches Java. `requires-python>=3.10` because jgo ≥2.1.3
+and scyjava 1.12.5 need it (3.9 is stuck on jgo 2.1.0).
 
 Java 21 is required: the ABBA jars (0.23.x) are compiled for Java 21 (class file
-version 65) and fail with `UnsupportedClassVersionError` on older JVMs. Installing
-the JDK other than from conda-forge causes TLS certificate failures when fetching
-atlases/jars. Note that scyjava ≥1.12 defaults to *downloading* its own Zulu JRE
-(`fetch="always"`, version 11) and ignores the conda JDK; `configure_java()` in
-`abba.py` overrides that version to `JAVA_VERSION` before every `imagej.init`.
+version 65) and fail with `UnsupportedClassVersionError` on older JVMs. scyjava
+fetches Java 11 by default, so `configure_java()` in `abba.py` sets the version
+to `JAVA_VERSION` before every `imagej.init`.
+
+On Windows (long paths disabled), a jgo cache under a deep directory
+(`scyjava.config.set_cache_dir`) fails with `FileNotFoundError [WinError 3]`
+while linking jars: the paths exceed 260 characters. The default `~/.jgo` is fine.
 
 ## Common commands
 

@@ -19,7 +19,7 @@ name = "abba-python"
 version = "0.20.0.dev0"
 description = "Aligning Big Brains and Atlases (ABBA), controlled from python."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text = "BSD-3-Clause" }
 authors = [{ name = "Nicolas Chiaruttini", email = "nicolas.chiaruttini@epfl.ch" }]
 # https://pypi.org/classifiers/
@@ -27,7 +27,6 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: BSD License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -35,7 +34,9 @@ classifiers = [
 ]
 # add your package dependencies here
 dependencies = [
-    "pyimagej"
+    # >=1.8.0 (scyjava>=1.12.4, jgo>=2.1): fetches Java itself and resolves jars
+    # without Maven; 1.7.x needs a pre-installed JDK
+    "pyimagej>=1.8.0"
 ]
 
 # https://peps.python.org/pep-0621/#dependencies-optional-dependencies
@@ -70,7 +71,7 @@ repository = "https://github.com/BIOP/abba-python"
 # https://docs.astral.sh/ruff
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py310"
 src = ["src"]
 
 # https://docs.astral.sh/ruff/rules
