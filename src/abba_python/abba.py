@@ -628,8 +628,8 @@ class Abba:
         if xs.size == 0:
             return roi[0] + roi[2] / 2, roi[1] + roi[3] / 2
         # pixel centers, the render grid spans the region of interest
-        return (roi[0] + (xs.mean() + 0.5) * roi[2] / width,
-                roi[1] + (ys.mean() + 0.5) * roi[3] / height)
+        return (float(roi[0] + (xs.mean() + 0.5) * roi[2] / width),
+                float(roi[1] + (ys.mean() + 0.5) * roi[3] / height))
 
     def _apply_affine_2d(self, index: int, m00: float, m01: float, m10: float, m11: float,
                          center: Optional[Sequence[float]]) -> list:
