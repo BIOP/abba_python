@@ -27,7 +27,7 @@ def get_java_dependencies():
     """
     return ['ch.epfl.biop:ijl-utilities-wrappers:0.12.1',
             'ch.epfl.biop:ImageToAtlasRegister:0.23.1-SNAPSHOT',
-            'ch.epfl.biop:bigdataviewer-biop-tools:0.23.1',
+            'ch.epfl.biop:bigdataviewer-biop-tools:0.24.0',
             'sc.fiji:bigdataviewer-playground:0.23.1',
             'sc.fiji.bigdataviewer:bigdataviewer-playground-display:0.23.1',
             'com.formdev:flatlaf:3.5.1',
@@ -313,7 +313,8 @@ class Abba:
         """
 
         :param z_location:
-            initial location in mm along the atlas cutting axis
+            initial location in mm along the atlas cutting axis, as the Z shown in the slice information
+            (0 = front of the atlas)
         :param z_increment:
             step in mm between each imported image
         :param split_rgb:
@@ -348,8 +349,8 @@ class Abba:
                                      "datasetname", JString('dataset'),
                                      "files", files,
                                      "split_rgb_channels", split_rgb,
-                                     "slice_axis_initial_mm", z_location,
-                                     "increment_between_slices_mm", z_increment
+                                     "first_slice_position_mm", z_location,
+                                     "slice_spacing_mm", z_increment
                                      ).get()
 
     # ------------------------ SLICE SELECTION
@@ -590,11 +591,64 @@ class Abba:
                                 'description': str(item.getDescription() or '')}
         return parameters
 
+    # ABBA commands, as SciJava command classes
+    _COMMAND_PACKAGE = 'ch.epfl.biop.atlas.aligner.command'
+
+    def describe_commands(self) -> list:
+        """
+        The ABBA commands of this session, with what they do
+
+        Each of them is also a method of this class (RegisterSlicesDeepSliceApposeCommand ->
+        register_slices_deepslice_appose); get_command_parameters() gives the inputs of one.
+
+        :return: list of dicts with keys name, title, description, sorted by name
+        """
+        commands = []
+        for info in self.ij.command().getCommands():
+            class_name = str(info.getDelegateClassName())
+            if class_name.startswith(self._COMMAND_PACKAGE):
+                commands.append({'name': class_name.rsplit('.', 1)[-1],
+                                 'title': str(info.getTitle() or ''),
+                                 'description': str(info.getDescription() or '')})
+        return sorted(commands, key=lambda command: command['name'])
+
+    def get_command_parameters(self, command_name: str) -> dict:
+        """
+        Inputs of an ABBA command, with their type, default value and, when the input is a list of
+        choices (post_processing, naming_choice...), the exact strings it accepts
+
+        :param command_name: class name, e.g. 'RegisterSlicesDeepSliceApposeCommand',
+            see describe_commands()
+        :return: dict name -> {type, default, required, label, description, choices}
+        """
+        info = self.ij.command().getCommand(self._COMMAND_PACKAGE + '.' + command_name)
+        if info is None:
+            raise ValueError(f'No ABBA command named {command_name}')
+        module = info.createModule()  # not run: gives the initialized field values as defaults
+        parameters = {}
+        for item in info.inputs():
+            name = str(item.getName())
+            java_type = item.getType()
+            if (name == 'mp' or str(item.getVisibility()) == 'MESSAGE'
+                    or java_type.isInterface() or 'scijava' in str(java_type.getName())):
+                continue  # the ABBA session, messages and the services, all set for the caller
+            default = module.getInput(name)
+            if default is None or str(default) == 'nan':
+                default = None  # NaN means 'not set': the command computes its own default, see its description
+            choices = item.getChoices()
+            parameters[name] = {'type': str(java_type.getSimpleName()),
+                                'default': None if default is None else str(default),
+                                'required': bool(item.isRequired()),
+                                'label': str(item.getLabel() or ''),
+                                'description': str(item.getDescription() or ''),
+                                'choices': None if choices is None else [str(choice) for choice in choices]}
+        return parameters
+
     # ------------------------ Hand-made in-plane corrections
     # A registration is appended after the existing ones: a row-packed matrix [m00 m01 0 tx, m10 m11 0 ty,
     # 0 0 1 0] moves each point p of the registered slice to M p + t, in mm, in the aligner coordinates
     # of the snapshots (x to the right, y down). Rotation direction is easy to misjudge on images:
-    # check a correction with compare() and its Dice scores.
+    # check a correction with compare(), which shows the slice before and after it.
 
     def get_tissue_centroid(self, index: int, pixel_size_mm: float = 0.1,
                             region_mm: Optional[Sequence[float]] = None) -> tuple:
@@ -671,43 +725,21 @@ class Abba:
         """
         return self._apply_affine_2d(index, sx, 0, 0, sx if sy is None else sy, center)
 
-    def get_fit_scores(self, slices: Optional[Sequence[int]] = None, pixel_size_mm: float = 0.05,
-                       **options: Any) -> list:
+    def compare(self, index: int, path: str, **options: Any) -> str:
         """
-        Dice between the tissue mask and the atlas brain mask of each slice (1 = perfect overlap),
-        requires a recent ImageToAtlasRegister (SliceSnapshot.tissueAtlasDice)
-
-        :param options: SliceSnapshot.Options fields, e.g. registrationStepBack=1 to score the
-            state before the last registration, atlasSlicingAxisPositionMm to score a candidate z
-        :return: list of (index, name, dice)
-        """
-        SliceSnapshot, java_options = self._snapshot_options(dict(options, pixelSizeMm=pixel_size_mm))
-        indices = range(self.get_n_slices()) if slices is None else slices
-        return [(i, str(s.getName()), float(SliceSnapshot.tissueAtlasDice(self.mp, s, java_options)))
-                for i, s in zip(indices, self._get_slices(list(indices)))]
-
-    def compare(self, index: int, path: str, **options: Any) -> dict:
-        """
-        Saves a PNG with the slice before (left) and after (right) its last registration, and
-        returns the tissue / atlas Dice scores when the ImageToAtlasRegister version provides them
+        Saves a PNG with the slice before (left) and after (right) its last registration
 
         :param options: SliceSnapshot.Options fields, see snapshot
-        :return: dict with path, dice_before, dice_after (None when unavailable)
+        :return: the saved file path
         """
         ArrayList = jimport('java.util.ArrayList')
         slice_ = self._get_slices([index])[0]
         steps_back = [1, 0] if int(slice_.getNumberOfRegistrations()) > 0 else [0]
         images = ArrayList()
-        dice = []
         for step_back in steps_back:
             SliceSnapshot, java_options = self._snapshot_options(dict(options, registrationStepBack=step_back))
             images.add(SliceSnapshot.render(self.mp, slice_, java_options))
-            if hasattr(SliceSnapshot, 'tissueAtlasDice'):
-                dice.append(float(SliceSnapshot.tissueAtlasDice(self.mp, slice_, java_options)))
-            else:
-                dice.append(None)
-        saved = str(SliceSnapshot.save(SliceSnapshot.tile(images, len(steps_back)), path))
-        return {'path': saved, 'dice_before': dice[0] if len(dice) == 2 else None, 'dice_after': dice[-1]}
+        return str(SliceSnapshot.save(SliceSnapshot.tile(images, len(steps_back)), path))
 
     def set_atlas_slicing_angles(self, x_degrees: float, y_degrees: float):
         """Sets the atlas slicing angles, in degrees (not undoable)"""
@@ -777,6 +809,14 @@ class Abba:
         image = SliceSnapshot.overview(self.mp, java_slices, java_options, columns)
         return str(SliceSnapshot.save(image, path))
 
+    @staticmethod
+    def _optional_input(name: str, value: Any) -> list:
+        """
+        [name, value] to append to the inputs of a command, or nothing if value is None: the command then
+        uses its own default
+        """
+        return [] if value is None else [name, value]
+
     # ---------------------- AUTOGENERATED CODE with the main method from ScijavaCommandToPython
     def benchmark(self,
             comment: str,
@@ -784,13 +824,13 @@ class Abba:
             use_gui: bool,
             wait_between_each_step: bool):
         """
-        Complete ABBA process in a benchmark
+        Runs a complete ABBA workflow on a demo dataset (mouse atlas, import, two DeepSlice runs, Elastix affine and spline registrations, QuPath export for the remote datasets) and reports the time and memory used by each step.
 
         Parameters:
-        comment (str): 
-        demo_dataset (str): 
-        use_gui (bool): Use graphical user interface
-        wait_between_each_step (bool): 
+        comment (str): Comment. Free text copied in the report, for instance to describe the machine.
+        demo_dataset (str): Demo dataset. Remote datasets are streamed from a public OMERO server (needs the OMERO dependencies). Local datasets are downloaded once from Zenodo and cached (about 1 GB per slide).
+        use_gui (bool): Use graphical user interface. If checked, the benchmark runs in an ABBA window; otherwise it runs without display.
+        wait_between_each_step (bool): Time each registration step. If checked, each registration step waits for all sections to be done before the next one starts, so that each step is timed separately. Slower.
         """
         ABBABenchMarkCommand = jimport('ch.epfl.biop.atlas.aligner.command.ABBABenchMarkCommand')
         return self.ij.command().run(ABBABenchMarkCommand, True,
@@ -801,7 +841,7 @@ class Abba:
 
     def check_for_update(self):
         """
-        Check for updates
+        Compares the installed ABBA version with the latest release on GitHub and shows the result in a dialog.
 
         """
         ABBACheckForUpdateCommand = jimport('ch.epfl.biop.atlas.aligner.command.ABBACheckForUpdateCommand')
@@ -809,7 +849,7 @@ class Abba:
 
     def cite_info(self):
         """
-        How to cite
+        Shows how to cite ABBA and the tools it uses, in a window (requires an internet connection).
 
         """
         ABBACiteInfoCommand = jimport('ch.epfl.biop.atlas.aligner.command.ABBACiteInfoCommand')
@@ -817,7 +857,7 @@ class Abba:
 
     def close(self):
         """
-        Close ABBA session
+        Closes an ABBA session and releases it. Unsaved work is lost.
 
         """
         ABBACloseCommand = jimport('ch.epfl.biop.atlas.aligner.command.ABBACloseCommand')
@@ -826,7 +866,7 @@ class Abba:
 
     def documentation(self):
         """
-        Open ABBA documentation webpage.
+        Opens the ABBA documentation website in a web browser.
 
         """
         ABBADocumentationCommand = jimport('ch.epfl.biop.atlas.aligner.command.ABBADocumentationCommand')
@@ -834,49 +874,45 @@ class Abba:
 
     def forum_help(self):
         """
-        Open a new post in the image.sc forum with current install information
+        Opens a new post draft on the image.sc forum in a web browser, pre-filled with the versions of ABBA and its dependencies.
 
         """
         ABBAForumHelpCommand = jimport('ch.epfl.biop.atlas.aligner.command.ABBAForumHelpCommand')
         return self.ij.command().run(ABBAForumHelpCommand, True)
 
-
     def generate_methods_prompt(self):
         """
-        Outputs a summary of methods used for the registration. Can be copy pasted in the llm of your choice.
+        Generates a prompt describing how the selected slices were registered (atlas, slicing angles, positions, registration steps), to paste in a large language model to draft the methods section of a publication.
 
         """
         ABBAGenerateMethodsPrompt = jimport('ch.epfl.biop.atlas.aligner.command.ABBAGenerateMethodsPrompt')
         return self.ij.command().run(ABBAGenerateMethodsPrompt, True,
                                     'mp', self.mp).get()
 
-
     def set_bdv_preferences(self):
         """
-        Sets actions linked to key / mouse event in ABBA (not functional)
+        Not functional: meant to edit the keyboard and mouse bindings of the ABBA viewer.
 
         """
         ABBASetBDVPreferencesCommand = jimport('ch.epfl.biop.atlas.aligner.command.ABBASetBDVPreferencesCommand')
         return self.ij.command().run(ABBASetBDVPreferencesCommand, True)
 
-
     def start_log(self):
         """
-        Close ABBA session
+        Opens a debug window which logs the slice events of an ABBA session (creation, deletion, actions).
 
         """
         ABBAStartLogCommand = jimport('ch.epfl.biop.atlas.aligner.command.ABBAStartLogCommand')
         return self.ij.command().run(ABBAStartLogCommand, True,
                                     'mp', self.mp).get()
 
-
     def state_load(self,
             state_file):
         """
-        Loads a previous registration state into ABBA
+        Loads a saved ABBA state (.abba file): slices, their positions and registrations, and the atlas slicing angles. The slices are added to the current session. The image files must still be at the location where they were when the state was saved.
 
         Parameters:
-        state_file : 
+        state_file : State file (.abba). ABBA state file to load. It must have been saved with the same atlas.
         """
         ABBAStateLoadCommand = jimport('ch.epfl.biop.atlas.aligner.command.ABBAStateLoadCommand')
         return self.ij.command().run(ABBAStateLoadCommand, True,
@@ -886,10 +922,10 @@ class Abba:
     def state_save(self,
             state_file):
         """
-        Saves the current registration state
+        Saves the current ABBA session (slices, positions, registrations, atlas slicing angles) in a .abba file. Images are not copied: the file references the original image files. Existing files are not overwritten.
 
         Parameters:
-        state_file : 
+        state_file : State file (.abba). File to create. The '.abba' extension is added if there is none. The file must not exist already.
         """
         ABBAStateSaveCommand = jimport('ch.epfl.biop.atlas.aligner.command.ABBAStateSaveCommand')
         return self.ij.command().run(ABBAStateSaveCommand, True,
@@ -898,7 +934,7 @@ class Abba:
 
     def user_feedback(self):
         """
-        Open an ABBA feedback form
+        Opens the ABBA user feedback form in a web browser.
 
         """
         ABBAUserFeedbackCommand = jimport('ch.epfl.biop.atlas.aligner.command.ABBAUserFeedbackCommand')
@@ -906,45 +942,45 @@ class Abba:
 
     def deepslice_documentation(self):
         """
-        Open deep slice reference webpage.
+        Opens the DeepSlice guide website in a web browser.
 
         """
         DeepSliceDocumentationCommand = jimport('ch.epfl.biop.atlas.aligner.command.DeepSliceDocumentationCommand')
         return self.ij.command().run(DeepSliceDocumentationCommand, True)
 
     def export_atlas_to_imagej(self,
-            atlas_channels: str,
+            atlas_channels_csv: str,
             image_name: str,
             interpolate: bool,
-            px_size_micron: float):
+            pixel_size_um: float):
         """
-        Export atlas properties as an ImageJ stack (for each selected slice).
+        Exports the atlas section at the position of each selected slice as an ImageJ image, one plane per slice, within the current region of interest. Same geometry as 'Export Registered Slices to ImageJ' with the same pixel size, so both images can be overlaid.
 
         Parameters:
-        atlas_channels (str): Channels to export, '*' for all channels
-        image_name (str): Exported image name
-        interpolate (bool): 
-        px_size_micron (float): Pixel Size in micron
+        atlas_channels_csv (str): Atlas channels. 0-based indices of the atlas channels to export, comma separated (e.g. '0,1'), or '*' for all channels. Depending on the atlas, channels include anatomical images, region borders, atlas coordinates, a left/right indicator and region labels.
+        image_name (str): Image name. Title of the exported ImageJ image.
+        interpolate (bool): Interpolate. If checked, pixels are linearly interpolated when resampled; otherwise the nearest pixel is used (keep it unchecked for label channels).
+        pixel_size_um (float): Pixel size (micrometers). Pixel size of the exported image.
         """
         ExportAtlasToImageJCommand = jimport('ch.epfl.biop.atlas.aligner.command.ExportAtlasToImageJCommand')
         return self.ij.command().run(ExportAtlasToImageJCommand, True,
                                     'mp', self.mp,
-                                    'atlas_channels', atlas_channels,
+                                    'atlas_channels_csv', atlas_channels_csv,
                                     'image_name', image_name,
                                     'interpolate', interpolate,
-                                    'px_size_micron', px_size_micron).get()
+                                    'pixel_size_um', pixel_size_um).get()
 
     def export_deformation_field_to_imagej(self,
             downsampling: int,
             max_number_of_iterations: int,
             resolution_level: int):
         """
-        Exports physical coordinates of the atlas in a 3 channel (x,y,z) image that matches pixels of the initial unregistered slice (for each selected slice). Resolution levels can be specified.
+        For each selected slice, exports a 3-channel (x, y, z) 32-bit ImageJ image with the same pixels as the original unregistered slice image: each pixel holds its atlas coordinates, in mm. Waits for the registrations of the slices to be done.
 
         Parameters:
-        downsampling (int): Extra DownSampling
-        max_number_of_iterations (int): Max iterations in invertible transform computation (default 200)
-        resolution_level (int): Resolution level (0 = max resolution)
+        downsampling (int): Additional downsampling factor. Integer factor to further downsample the exported image, on top of the resolution level. 1 = no downsampling.
+        max_number_of_iterations (int): Max iterations for transform inversion. Maximum number of iterations used to numerically invert non-linear (spline) registrations. Increase it if the inversion does not converge. Default 200.
+        resolution_level (int): Resolution level. Resolution level of the original image the exported image matches: 0 = full resolution, 1 = first downscaled level, etc. Must exist in the slice files.
         """
         ExportDeformationFieldToImageJCommand = jimport('ch.epfl.biop.atlas.aligner.command.ExportDeformationFieldToImageJCommand')
         return self.ij.command().run(ExportDeformationFieldToImageJCommand, True,
@@ -956,10 +992,10 @@ class Abba:
     def export_registration_to_qupath(self,
             erase_previous_file: bool):
         """
-        Export atlas regions and transformations to QuPath project (for each selected slice)
+        For each selected slice imported from a QuPath project, saves its atlas regions and its registration (ABBA-RoiSet and ABBA-Transform files) in the QuPath project folder of the image. They are then imported in QuPath with the ABBA extension. Slices not imported from a QuPath project are not exported.
 
         Parameters:
-        erase_previous_file (bool): Erase Previous ROIs
+        erase_previous_file (bool): Overwrite previous export. If checked, a previous ABBA export of the same image is replaced; otherwise an error is reported for this image.
         """
         ExportRegistrationToQuPathCommand = jimport('ch.epfl.biop.atlas.aligner.command.ExportRegistrationToQuPathCommand')
         return self.ij.command().run(ExportRegistrationToQuPathCommand, True,
@@ -970,37 +1006,37 @@ class Abba:
             block_size_x: int,
             block_size_y: int,
             block_size_z: int,
-            channels: str,
             downsample_x: int,
             downsample_y: int,
             downsample_z: int,
             image_name: str,
             interpolate: bool,
-            margin_z: float,
+            margin_z_um: float,
             n_threads: int,
-            px_size_micron_x: float,
-            px_size_micron_y: float,
-            px_size_micron_z: float,
-            resolution_levels: int):
+            resolution_levels: int,
+            slice_channels_csv: str,
+            voxel_size_x_um: float,
+            voxel_size_y_um: float,
+            voxel_size_z_um: float):
         """
-        Export registered (deformed) slices in the atlas coordinates. A pixel size should be specified to resample the registered images.
+        Experimental: fuses the registered selected slices into a 3D volume in atlas coordinates, resampled at the given voxel size and within the current region of interest, as multiresolution BigDataViewer sources (one per channel), computed lazily and cached.
 
         Parameters:
-        block_size_x (int): Block Size X
-        block_size_y (int): Block Size Y
-        block_size_z (int): Block Size Z
-        channels (str): Slices channels, 0-based, comma separated, '*' for all channels
-        downsample_x (int): X downsampling
-        downsample_y (int): Y downsampling
-        downsample_z (int): Z downsampling
-        image_name (str): Exported source name
-        interpolate (bool): 
-        margin_z (float): Margin in Z in micron
-        n_threads (int): Number of threads
-        px_size_micron_x (float): Pixel Size in micron (X)
-        px_size_micron_y (float): Pixel Size in micron (Y)
-        px_size_micron_z (float): Pixel Size in micron (Z)
-        resolution_levels (int): Number of resolution levels (min 1)
+        block_size_x (int): Cache block size X (pixels). Size along X of the blocks computed and cached at once.
+        block_size_y (int): Cache block size Y (pixels). Size along Y of the blocks computed and cached at once.
+        block_size_z (int): Cache block size Z (pixels). Size along Z of the blocks computed and cached at once.
+        downsample_x (int): Downsampling between resolution levels X. Factor along X between two consecutive resolution levels of the output.
+        downsample_y (int): Downsampling between resolution levels Y. Factor along Y between two consecutive resolution levels of the output.
+        downsample_z (int): Downsampling between resolution levels Z. Factor along Z between two consecutive resolution levels of the output.
+        image_name (str): Source name. Base name of the exported sources, '_ch<index>' is appended for each channel.
+        interpolate (bool): Interpolate. If checked, pixels are linearly interpolated when resampled; otherwise the nearest pixel is used.
+        margin_z_um (float): Z margin (micrometers). Extra space added before the first and after the last selected slice along the slicing axis.
+        n_threads (int): Number of threads. Number of threads used to compute the blocks.
+        resolution_levels (int): Number of resolution levels. Number of resolution levels of the output sources, at least 1.
+        slice_channels_csv (str): Slice channels. 0-based indices of the slice channels to export, comma separated (e.g. '0,2'), or '*' for all channels.
+        voxel_size_x_um (float): Voxel size X (micrometers). Size of the output voxels along the X axis of the sections.
+        voxel_size_y_um (float): Voxel size Y (micrometers). Size of the output voxels along the Y axis of the sections.
+        voxel_size_z_um (float): Voxel size Z (micrometers). Size of the output voxels along the slicing axis.
         """
         ExportResampledSlicesToBDVSourceCommand = jimport('ch.epfl.biop.atlas.aligner.command.ExportResampledSlicesToBDVSourceCommand')
         return self.ij.command().run(ExportResampledSlicesToBDVSourceCommand, True,
@@ -1008,45 +1044,45 @@ class Abba:
                                     'block_size_x', block_size_x,
                                     'block_size_y', block_size_y,
                                     'block_size_z', block_size_z,
-                                    'channels', channels,
                                     'downsample_x', downsample_x,
                                     'downsample_y', downsample_y,
                                     'downsample_z', downsample_z,
                                     'image_name', image_name,
                                     'interpolate', interpolate,
-                                    'margin_z', margin_z,
+                                    'margin_z_um', margin_z_um,
                                     'n_threads', n_threads,
-                                    'px_size_micron_x', px_size_micron_x,
-                                    'px_size_micron_y', px_size_micron_y,
-                                    'px_size_micron_z', px_size_micron_z,
-                                    'resolution_levels', resolution_levels).get()
+                                    'resolution_levels', resolution_levels,
+                                    'slice_channels_csv', slice_channels_csv,
+                                    'voxel_size_x_um', voxel_size_x_um,
+                                    'voxel_size_y_um', voxel_size_y_um,
+                                    'voxel_size_z_um', voxel_size_z_um).get()
 
     def export_slices_original_data_to_imagej(self,
-            channels: str,
             resolution_level: int,
+            slice_channels_csv: str,
             verbose: bool):
         """
-        Export to ImageJ the original unregistered slice data (for each selected slice).If the image has more than 2GPixels, this will fail. Resolution levels can be specified.
+        Opens in ImageJ the original, unregistered image of each selected slice, at the chosen resolution level. Fails for images larger than 2 billion pixels (use a lower resolution level). Useful together with the regions exported to the ROI Manager.
 
         Parameters:
-        channels (str): Slices channels, 0-based, comma separated, '*' for all channels
-        resolution_level (int): Resolution level (0 = max resolution)
-        verbose (bool): verbose
+        resolution_level (int): Resolution level. 0 = full resolution, 1 = first downscaled level, etc. Must exist in all selected slices.
+        slice_channels_csv (str): Slice channels. 0-based indices of the slice channels to export, comma separated (e.g. '0,2'), or '*' for all channels.
+        verbose (bool): Verbose. If checked, logs the progress of the image loading.
         """
         ExportSlicesOriginalDataToImageJCommand = jimport('ch.epfl.biop.atlas.aligner.command.ExportSlicesOriginalDataToImageJCommand')
         return self.ij.command().run(ExportSlicesOriginalDataToImageJCommand, True,
                                     'mp', self.mp,
-                                    'channels', channels,
                                     'resolution_level', resolution_level,
+                                    'slice_channels_csv', slice_channels_csv,
                                     'verbose', verbose).get()
 
     def export_slices_to_bdv(self,
             tag: str):
         """
-        Export registered slices to a BigDataViewer window.
+        Shows the registered selected slices, placed in atlas coordinates, in a new BigDataViewer window. The sources are also added to the BigDataViewer-Playground source tree. Waits for all ABBA tasks to be done.
 
         Parameters:
-        tag (str): Enter a tag to identify the registered sources (metadata key = "ABBA")
+        tag (str): Tag. Text stored as the 'ABBA' metadata of each exported source, to identify them later in scripts.
         """
         ExportSlicesToBDVCommand = jimport('ch.epfl.biop.atlas.aligner.command.ExportSlicesToBDVCommand')
         return self.ij.command().run(ExportSlicesToBDVCommand, True,
@@ -1057,11 +1093,11 @@ class Abba:
             file,
             tag: str):
         """
-        Export registered slices as a BigDataViewer json dataset (very experimental).
+        Very experimental: saves the registered selected slices, placed in atlas coordinates, as a BigDataViewer-Playground json file which references the original images. Waits for all ABBA tasks to be done.
 
         Parameters:
-        file : Please specify a json file to store the reconstructed data
-        tag (str): Enter a tag to identify the registered sources (metadata key = "ABBA")
+        file : Output file (.json). Json file to create.
+        tag (str): Tag. Text stored as the 'ABBA' metadata of each exported source, to identify them later in scripts.
         """
         ExportSlicesToBDVJsonDatasetCommand = jimport('ch.epfl.biop.atlas.aligner.command.ExportSlicesToBDVJsonDatasetCommand')
         return self.ij.command().run(ExportSlicesToBDVJsonDatasetCommand, True,
@@ -1070,119 +1106,73 @@ class Abba:
                                     'tag', tag).get()
 
     def export_slices_to_quicknii_dataset(self,
-            channels: str,
             convert_to_8_bits: bool,
             convert_to_jpg: bool,
             dataset_folder,
             image_name: str,
             interpolate: bool,
-            px_size_micron: float):
+            pixel_size_um: float,
+            slice_channels_csv: str):
         """
-
+        Exports the selected slices as a QuickNII dataset: registered (deformed) slice images resampled within the current region of interest, and a series JSON file with the position of each image in the atlas. The exported images already include all registrations. The folder is created if needed.
 
         Parameters:
-        channels (str): Slices channels, 0-based, comma separated, '*' for all channels
-        convert_to_8_bits (bool): Convert to 8 bit image
-        convert_to_jpg (bool): Convert to jpg (single channel recommended)
-        dataset_folder : QuickNII dataset export folder
-        image_name (str): Section Name Prefix
-        interpolate (bool): 
-        px_size_micron (float): Pixel Size in micron
+        convert_to_8_bits (bool): Convert to 8-bit. If checked, images are converted to 8-bit before being saved.
+        convert_to_jpg (bool): Save as JPEG. If checked, images are saved as JPEG, the format QuickNII reads; a single channel is recommended. Otherwise they are saved as TIFF.
+        dataset_folder : Output folder. Folder where the images ('<prefix>_s000.jpg'...) and the '<prefix>.json' series file are written.
+        image_name (str): File name prefix. Prefix of the exported image files and name of the JSON series file.
+        interpolate (bool): Interpolate. If checked, pixels are linearly interpolated when resampled; otherwise the nearest pixel is used.
+        pixel_size_um (float): Pixel size (micrometers). Pixel size at which the registered slices are resampled.
+        slice_channels_csv (str): Slice channels. 0-based indices of the slice channels to export, comma separated (e.g. '0,2'), or '*' for all channels.
         """
         ExportSlicesToQuickNIIDatasetCommand = jimport('ch.epfl.biop.atlas.aligner.command.ExportSlicesToQuickNIIDatasetCommand')
         return self.ij.command().run(ExportSlicesToQuickNIIDatasetCommand, True,
                                     'mp', self.mp,
-                                    'channels', channels,
                                     'convert_to_8_bits', convert_to_8_bits,
                                     'convert_to_jpg', convert_to_jpg,
                                     'dataset_folder', dataset_folder,
                                     'image_name', image_name,
                                     'interpolate', interpolate,
-                                    'px_size_micron', px_size_micron).get()
+                                    'pixel_size_um', pixel_size_um,
+                                    'slice_channels_csv', slice_channels_csv).get()
 
     def export_std_zip_state(self,
-            ba,
-            channels: str,
-            coronal,
             downscale_deformation_field: int,
             experiment_information: str,
-            horizontal,
             identifier: str,
-            sagittal,
-            save_path,
-            state_file,
-            target_resolution_micrometer: float,
-            x_axis: str,
-            y_axis: str,
-            z_axis: str):
+            output_folder,
+            pixel_size_um: float,
+            slice_channels_csv: str):
         """
-        Takes a full project and store a downscaled version of the dataset for sharing
+        Creates a standardized, shareable zip of the current ABBA session: all slices downscaled to a given pixel size, their registrations, their deformation fields and metadata (atlas, slicing orientation, experiment information). The zip can be opened with 'Import Standardized ABBA Project (Zip)'. The session itself is not modified.
 
         Parameters:
-        ba : 
-        channels (str): Slices channels, 0-based, comma separated, '*' for all channels
-        coronal : 
-        downscale_deformation_field (int): 
-        experiment_information (str): 
-        horizontal : 
-        identifier (str): 
-        sagittal : 
-        save_path : 
-        state_file : 
-        target_resolution_micrometer (float): 
-        x_axis (str): 
-        y_axis (str): 
-        z_axis (str): 
+        downscale_deformation_field (int): Deformation field downscaling factor. The deformation field (atlas coordinates of each pixel) is computed every N pixels of the exported slices.
+        experiment_information (str): Experiment information. Free text describing the experiment (animal, staining, sectioning...), stored in the metadata of the zip.
+        identifier (str): Export identifier. Short name of the export, used in the zip file name: abba_export_<identifier>.zip.
+        output_folder : Output folder. Folder where the zip is written. A zip with the same name must not exist.
+        pixel_size_um (float): Pixel size of the exported slices (micrometers). The original slice images are downscaled to this pixel size to keep the zip small.
+        slice_channels_csv (str): Slice channels. 0-based indices of the slice channels to export, comma separated (e.g. '0,2'), or '*' for all channels.
         """
         ExportStdZipStateCommand = jimport('ch.epfl.biop.atlas.aligner.command.ExportStdZipStateCommand')
         return self.ij.command().run(ExportStdZipStateCommand, True,
-                                    'ba', ba,
-                                    'channels', channels,
-                                    'coronal', coronal,
+                                    'mp', self.mp,
                                     'downscale_deformation_field', downscale_deformation_field,
                                     'experiment_information', experiment_information,
-                                    'horizontal', horizontal,
                                     'identifier', identifier,
-                                    'sagittal', sagittal,
-                                    'save_path', save_path,
-                                    'state_file', state_file,
-                                    'target_resolution_micrometer', target_resolution_micrometer,
-                                    'x_axis', x_axis,
-                                    'y_axis', y_axis,
-                                    'z_axis', z_axis).get()
-
-    def export_transformed_atlas_to_imagej(self,
-            atlas_channels: str,
-            downsampling: int,
-            max_number_of_iterations: int,
-            resolution_level: int):
-        """
-        Exports physical coordinates of the atlas in a 3 channel (x,y,z) image that matches pixels of the initial unregistered slice (for each selected slice). Resolution levels can be specified.
-
-        Parameters:
-        atlas_channels (str): Channels to export, '*' for all channels
-        downsampling (int): Extra DownSampling
-        max_number_of_iterations (int): Max iterations in invertible transform computation (default 200)
-        resolution_level (int): Resolution level (0 = max resolution)
-        """
-        ExportTransformedAtlasToImageJCommand = jimport('ch.epfl.biop.atlas.aligner.command.ExportTransformedAtlasToImageJCommand')
-        return self.ij.command().run(ExportTransformedAtlasToImageJCommand, True,
-                                    'mp', self.mp,
-                                    'atlas_channels', atlas_channels,
-                                    'downsampling', downsampling,
-                                    'max_number_of_iterations', max_number_of_iterations,
-                                    'resolution_level', resolution_level).get()
-
+                                    'output_folder', output_folder,
+                                    'pixel_size_um', pixel_size_um,
+                                    'slice_channels_csv', slice_channels_csv).get()
 
     def import_demo_slices_omero(self,
-                                     demo_dataset: str,
-                                     project_directory):
+            demo_dataset: str,
+            project_directory):
         """
-        Open a set of demo brain sections
+        Imports demo mouse brain sections streamed from a public OMERO server, through a QuPath project downloaded from Zenodo. Requires an internet connection and the OMERO dependencies.
 
         Parameters:
-        demo_dataset (str): Choose the number of sections to import
-        project_directory : Target directory for QuPath project (not required)
+        demo_dataset (str): Demo dataset. '25 sections': a subset, faster to try ABBA. '97 sections': the full brain.
+        project_directory : QuPath project folder (optional). Existing folder where the demo QuPath project is downloaded, to keep it and export registrations to it. If empty or missing, a temporary folder is used.
         """
         ImportDemoSlicesOMEROCommand = jimport('ch.epfl.biop.atlas.aligner.command.ImportDemoSlicesOMEROCommand')
         return self.ij.command().run(ImportDemoSlicesOMEROCommand, True,
@@ -1190,14 +1180,13 @@ class Abba:
                                     'demo_dataset', demo_dataset,
                                     'project_directory', project_directory).get()
 
-
     def import_demo_slices_zenodo(self,
-                                       number_of_slides: int):
+            number_of_slides: int):
         """
-        Open a set of demo brain sections
+        Imports demo mouse brain sections from whole slide images (vsi) downloaded from Zenodo and cached locally (about 1 GB per slide). The label and overview images of each slide are imported as extra slices (their name does not contain '10x'). All slices are selected at the end.
 
         Parameters:
-        number_of_slides (int): Number of slides to use (7 max)
+        number_of_slides (int): Number of slides. Number of slides to download, from 1 to 7, picked around the central slide. Each slide contains several sections.
         """
         ImportDemoSlicesZENODOCommand = jimport('ch.epfl.biop.atlas.aligner.command.ImportDemoSlicesZENODOCommand')
         return self.ij.command().run(ImportDemoSlicesZENODOCommand, True,
@@ -1206,89 +1195,89 @@ class Abba:
 
     def import_slice_from_image_plus(self,
             image,
-            slice_axis_mm: float):
+            slice_position_mm: float):
         """
-        Import the current ImageJ image as a slice into ABBA
+        Imports an image opened in ImageJ as a single slice, all channels included. The image should be calibrated (pixel size).
 
         Parameters:
-        image : 
-        slice_axis_mm (float): Initial axis position (0 = front, mm units)
+        image : Image. ImageJ image to import; by default the current image.
+        slice_position_mm (float): Slice position (mm). Initial position of the slice along the atlas slicing axis, in mm, as the Z shown in the slice information (0 = front of the atlas).
         """
         ImportSliceFromImagePlusCommand = jimport('ch.epfl.biop.atlas.aligner.command.ImportSliceFromImagePlusCommand')
         return self.ij.command().run(ImportSliceFromImagePlusCommand, True,
                                     'mp', self.mp,
                                     'image', image,
-                                    'slice_axis_mm', slice_axis_mm).get()
+                                    'slice_position_mm', slice_position_mm).get()
 
     def import_slice_from_sources(self,
-            slice_axis_mm: float,
+            slice_position_mm: float,
             sources):
         """
-        Import a list of sources as a slice into ABBA
+        Imports BigDataViewer-Playground sources as a single slice: each source becomes one channel of the slice.
 
         Parameters:
-        slice_axis_mm (float): Initial axis position (0 = front, mm units)
-        sources : 
+        slice_position_mm (float): Slice position (mm). Initial position of the slice along the atlas slicing axis, in mm, as the Z shown in the slice information (0 = front of the atlas).
+        sources : Sources (channels). Sources forming the slice, one per channel, in channel order. Their calibration should be in mm.
         """
         ImportSliceFromSourcesCommand = jimport('ch.epfl.biop.atlas.aligner.command.ImportSliceFromSourcesCommand')
         return self.ij.command().run(ImportSliceFromSourcesCommand, True,
                                     'mp', self.mp,
-                                    'slice_axis_mm', slice_axis_mm,
+                                    'slice_position_mm', slice_position_mm,
                                     'sources', sources).get()
 
     def import_slices_from_files(self,
             datasetname: str,
             files,
-            increment_between_slices_mm: float,
-            slice_axis_initial_mm: float,
+            first_slice_position_mm: float,
+            slice_spacing_mm: float,
             split_rgb_channels: bool):
         """
-        Import a Bio-Formats compatible file as brain slices
+        Imports images from Bio-Formats compatible files (vsi, czi, ome.tiff, lif...) as slices. Each image series of each file becomes one slice, all channels included. The imported slices are selected.
 
         Parameters:
-        datasetname (str): Dataset Name
-        files : Files to import
-        increment_between_slices_mm (float): Axis increment between slices (mm, can be negative for reverse order)
-        slice_axis_initial_mm (float): Initial axis position (0 = front, mm units)
-        split_rgb_channels (bool): Split RGB channels
+        datasetname (str): Dataset name. Name of the dataset grouping the imported images in the BigDataViewer-Playground source tree.
+        files : Files to import. Image files to open with Bio-Formats. Files should have a pixel size calibration.
+        first_slice_position_mm (float): Position of the first slice (mm). Initial position of the first imported slice along the atlas slicing axis, in mm, as the Z shown in the slice information (0 = front of the atlas). Positions can be adjusted later, for instance with DeepSlice.
+        slice_spacing_mm (float): Spacing between slices (mm). Distance between consecutive imported slices along the slicing axis, in mm. Use a negative value to reverse their order.
+        split_rgb_channels (bool): Split RGB channels. If checked, RGB images are split into three channels (red, green, blue); otherwise they are kept as a single RGB channel.
         """
         ImportSlicesFromFilesCommand = jimport('ch.epfl.biop.atlas.aligner.command.ImportSlicesFromFilesCommand')
         return self.ij.command().run(ImportSlicesFromFilesCommand, True,
                                     'mp', self.mp,
                                     'datasetname', datasetname,
                                     'files', files,
-                                    'increment_between_slices_mm', increment_between_slices_mm,
-                                    'slice_axis_initial_mm', slice_axis_initial_mm,
+                                    'first_slice_position_mm', first_slice_position_mm,
+                                    'slice_spacing_mm', slice_spacing_mm,
                                     'split_rgb_channels', split_rgb_channels).get()
 
     def import_slices_from_qupath(self,
-            increment_between_slices_mm: float,
+            first_slice_position_mm: float,
             qupath_project,
-            slice_axis_initial_mm: float):
+            slice_spacing_mm: float):
         """
-        Import images of a QuPath project as slices into ABBA
+        Imports all images of a QuPath project as slices, one slice per project image, all channels included. Registrations can then be exported back to the QuPath project. Do not add or remove images in the QuPath project after the import.
 
         Parameters:
-        increment_between_slices_mm (float): Axis increment between slices (mm, can be negative for reverse order)
-        qupath_project : QuPath project file (.qpproj)
-        slice_axis_initial_mm (float): Initial axis position (0 = front, mm units)
+        first_slice_position_mm (float): Position of the first slice (mm). Initial position of the first imported slice along the atlas slicing axis, in mm, as the Z shown in the slice information (0 = front of the atlas). Positions can be adjusted later, for instance with DeepSlice.
+        qupath_project : QuPath project file (.qpproj). The project.qpproj file of the QuPath project to import.
+        slice_spacing_mm (float): Spacing between slices (mm). Distance between consecutive imported slices along the slicing axis, in mm. Use a negative value to reverse their order. Cannot be 0.
         """
         ImportSlicesFromQuPathCommand = jimport('ch.epfl.biop.atlas.aligner.command.ImportSlicesFromQuPathCommand')
         return self.ij.command().run(ImportSlicesFromQuPathCommand, True,
                                     'mp', self.mp,
-                                    'increment_between_slices_mm', increment_between_slices_mm,
+                                    'first_slice_position_mm', first_slice_position_mm,
                                     'qupath_project', qupath_project,
-                                    'slice_axis_initial_mm', slice_axis_initial_mm).get()
+                                    'slice_spacing_mm', slice_spacing_mm).get()
 
     def import_slices_from_quicknii(self,
             quicknii_project,
             split_rgb_channels: bool):
         """
-        Import images of a QuickNII Project as slices into ABBA
+        Imports the images of a QuickNII series (JSON file, also produced by DeepSlice) as slices, together with their registration: slice positions, in-plane affine transforms and atlas slicing angle. The import is approximate: a single slicing angle (median of all slices) is applied to all slices.
 
         Parameters:
-        quicknii_project : QuickNII file (.json)
-        split_rgb_channels (bool): Split RGB channels
+        quicknii_project : QuickNII file (.json). QuickNII series file, in JSON format. The images it references must be in the same folder.
+        split_rgb_channels (bool): Split RGB channels. If checked, RGB images are split into three channels (red, green, blue); otherwise they are kept as a single RGB channel.
         """
         ImportSlicesFromQuickNIICommand = jimport('ch.epfl.biop.atlas.aligner.command.ImportSlicesFromQuickNIICommand')
         return self.ij.command().run(ImportSlicesFromQuickNIICommand, True,
@@ -1299,10 +1288,10 @@ class Abba:
     def import_std_zip_state(self,
             zip_file):
         """
-        Opens a previously created zipped ABBA project.
+        Opens a standardized ABBA project zip, created with 'Export Standardized ABBA Project (Zip)', in a new ABBA window: the atlas and slicing orientation stored in the zip are loaded, then the downscaled slices and their registrations.
 
         Parameters:
-        zip_file : 
+        zip_file : Standardized project (.zip). Zip file created with 'Export Standardized ABBA Project (Zip)'.
         """
         ImportStdZipStateCommand = jimport('ch.epfl.biop.atlas.aligner.command.ImportStdZipStateCommand')
         return self.ij.command().run(ImportStdZipStateCommand, True,
@@ -1311,10 +1300,10 @@ class Abba:
     def mirror_do(self,
             mirror_side: str):
         """
-        Mirror a half section to create the other side.
+        Turns hemi-sections into full sections, for instance before DeepSlice which needs full sections. The vertical midline of the atlas acts as a mirror: the half of each selected slice on the chosen side is kept, and its mirror image replaces the other half. Place the hemi-section against the atlas midline first. Undo with 'Un-Mirror Slices'.
 
         Parameters:
-        mirror_side (str): 
+        mirror_side (str): Half to keep (as displayed). Side of the atlas midline, as displayed on screen, where the tissue is. 'Left': the left half is kept and mirrored onto the right half. 'Right': the right half is kept and mirrored onto the left half.
         """
         MirrorDoCommand = jimport('ch.epfl.biop.atlas.aligner.command.MirrorDoCommand')
         return self.ij.command().run(MirrorDoCommand, True,
@@ -1323,7 +1312,7 @@ class Abba:
 
     def mirror_undo(self):
         """
-        Remove slice mirroring.
+        Removes the mirroring of the selected slices, made with 'Mirror Slices', while keeping the registrations done afterwards.
 
         """
         MirrorUndoCommand = jimport('ch.epfl.biop.atlas.aligner.command.MirrorUndoCommand')
@@ -1332,58 +1321,58 @@ class Abba:
 
     def raster_slices(self,
             interpolate: bool,
-            pixel_size_micrometer: float):
+            pixel_size_um: float):
         """
-        Speed up the display of slices by precomputing and caching their pixel.
+        Speeds up the display of the selected slices by computing and caching their registered image at a fixed pixel size. The cached image has a lower resolution than the original image. Experimental.
 
         Parameters:
-        interpolate (bool): Interpolate
-        pixel_size_micrometer (float): Pixel size (micrometer)
+        interpolate (bool): Interpolate. If checked, pixels are linearly interpolated when resampled; otherwise the nearest pixel is used.
+        pixel_size_um (float): Pixel size (micrometers). Pixel size of the cached images: larger is faster and uses less memory, but is blurrier.
         """
         RasterSlicesCommand = jimport('ch.epfl.biop.atlas.aligner.command.RasterSlicesCommand')
         return self.ij.command().run(RasterSlicesCommand, True,
                                     'mp', self.mp,
                                     'interpolate', interpolate,
-                                    'pixel_size_micrometer', pixel_size_micrometer).get()
+                                    'pixel_size_um', pixel_size_um).get()
 
     def raster_slices_deformation(self,
-            grid_spacing_in_micrometer: float):
+            grid_spacing_um: float):
         """
-        Speed up the display of slices by precomputing and caching their deformation field (useful after spline registrations only!).
+        Speeds up the display of the selected slices by computing their deformation field on a grid and interpolating it. Only useful after spline registrations. Experimental.
 
         Parameters:
-        grid_spacing_in_micrometer (float): Deformation grid size (micrometer)
+        grid_spacing_um (float): Grid spacing (micrometers). Spacing of the grid on which the deformation is computed. Larger is faster but less accurate. Must be above the atlas resolution.
         """
         RasterSlicesDeformationCommand = jimport('ch.epfl.biop.atlas.aligner.command.RasterSlicesDeformationCommand')
         return self.ij.command().run(RasterSlicesDeformationCommand, True,
                                     'mp', self.mp,
-                                    'grid_spacing_in_micrometer', grid_spacing_in_micrometer).get()
+                                    'grid_spacing_um', grid_spacing_um).get()
 
     def register_slices_bigwarp(self,
-            channels_atlas_csv: str,
-            channels_slice_csv: str):
+            atlas_channels_csv: str,
+            slice_channels_csv: str):
         """
-        Uses BigWarp for in plane registration of selected slices
+        Manual in-plane non-linear registration of the selected slices: each slice is opened in BigWarp, one after the other, where landmarks are placed by hand. Selected channels are only used for display.
 
         Parameters:
-        channels_atlas_csv (str): Atlas channels (channels comma separated)
-        channels_slice_csv (str): Slices channels (channels comma separated)
+        atlas_channels_csv (str): Atlas channels. 0-based indices of the atlas channels to use, comma separated (e.g. '0,1'). '*' is not accepted. Channel indices are shown in the atlas display card.
+        slice_channels_csv (str): Slice channels. 0-based indices of the slice channels to use, comma separated (e.g. '0,1'). '*' is not accepted.
         """
         RegisterSlicesBigWarpCommand = jimport('ch.epfl.biop.atlas.aligner.command.RegisterSlicesBigWarpCommand')
         return self.ij.command().run(RegisterSlicesBigWarpCommand, True,
                                     'mp', self.mp,
-                                    'channels_atlas_csv', channels_atlas_csv,
-                                    'channels_slice_csv', channels_slice_csv).get()
+                                    'atlas_channels_csv', atlas_channels_csv,
+                                    'slice_channels_csv', slice_channels_csv).get()
 
     def register_slices_copy_and_apply(self,
             model_slice_index: int,
             skip_pre_transform: bool):
         """
-        Copy the registration sequence of a slice and apply it to selected slices
+        Copies all registrations of a model slice and appends them, as they are (no new computation), to the registrations of each selected slice. The model slice itself is left unchanged.
 
         Parameters:
-        model_slice_index (int): Index of the slice registrations you'd like to copy
-        skip_pre_transform (bool): Tick if you want to skip the pre-transform (probably not)
+        model_slice_index (int): Model slice index. 0-based index of the slice whose registrations are copied, in the slice order along the slicing axis.
+        skip_pre_transform (bool): Skip the pre-transform. If checked, the model slice pre-transform is not copied: the out-of-plane part of X or Y flips, and rotations made with older ABBA versions. In-plane edits are registrations and are always copied.
         """
         RegisterSlicesCopyAndApplyCommand = jimport('ch.epfl.biop.atlas.aligner.command.RegisterSlicesCopyAndApplyCommand')
         return self.ij.command().run(RegisterSlicesCopyAndApplyCommand, True,
@@ -1393,195 +1382,204 @@ class Abba:
 
     def register_slices_deepslice_appose(self,
             allow_slicing_angle_change: bool,
-            channels: str,
             ensemble: bool,
             model: str,
             post_processing: str,
-            px_size_micron: float,
-            slices_spacing_micrometer: float):
+            slice_channels_csv: str,
+            slice_spacing_um: float,
+            pixel_size_um: Optional[float] = None):
         """
-        Uses Deepslice for affine in plane and axial registration of selected slices
+        Runs DeepSlice (installed automatically in a local Python environment) on the selected slices: sets their position along the slicing axis, adds an in-plane affine registration and optionally adjusts the atlas slicing angle. The result depends on the slices display settings: avoid saturation.
 
         Parameters:
-        allow_slicing_angle_change (bool): Allow change of atlas slicing angle
-        channels (str): Slices channels, 0-based, comma separated, '*' for all channels
-        ensemble (bool): Average of several models (slower)
-        model (str): ('mouse', 'rat') Mouse or Rat ?
-        post_processing (str): 
-        px_size_micron (float): Resampling pixel size (10 for mouse, 40 for rat)
-        slices_spacing_micrometer (float): Spacing (micrometer), used only when 'Keep order + set spacing' is selected
+        allow_slicing_angle_change (bool): Adjust atlas slicing angle. If checked, the atlas slicing angles (X and Y rotations) are set to the median angle found by DeepSlice. This changes the slicing for all slices, not only the selected ones.
+        ensemble (bool): Ensemble (average of several models, slower). If checked, DeepSlice averages the predictions of several models. Results may be better or not depending on the dataset: try both.
+        model (str): DeepSlice model. Species DeepSlice was trained on: 'mouse' or 'rat'. It should match the atlas.
+        pixel_size_um (float): Pixel size sent to DeepSlice (micrometers). Optional. Pixel size used to downsample the slices before sending them to DeepSlice. Defaults to 10.0 for mouse and 40.0 for rat; larger values are faster.
+        post_processing (str): Position post-processing. How the slice positions predicted by DeepSlice are corrected. 'Keep order': the current slice order is preserved. 'Keep order + ensure regular spacing': order preserved and slices evenly spaced, spacing estimated by DeepSlice. 'Keep order + set spacing (parameter below)': order preserved and slices evenly spaced with the spacing given below. 'No post-processing': raw DeepSlice positions, slices may be reordered.
+        slice_channels_csv (str): Slice channels. 0-based indices of the slice channels sent to DeepSlice, comma separated (e.g. '0,2'), or '*' for all channels. Selected channels are merged into an RGB image with their current display settings (color and min/max).
+        slice_spacing_um (float): Slice spacing (micrometers). Distance between consecutive slices. Only used with 'Keep order + set spacing (parameter below)'.
         """
         RegisterSlicesDeepSliceApposeCommand = jimport('ch.epfl.biop.atlas.aligner.command.RegisterSlicesDeepSliceApposeCommand')
         return self.ij.command().run(RegisterSlicesDeepSliceApposeCommand, True,
                                     'mp', self.mp,
                                     'allow_slicing_angle_change', allow_slicing_angle_change,
-                                    'channels', channels,
                                     'ensemble', ensemble,
                                     'model', model,
                                     'post_processing', post_processing,
-                                    'px_size_micron', px_size_micron,
-                                    'slices_spacing_micrometer', slices_spacing_micrometer).get()
+                                    'slice_channels_csv', slice_channels_csv,
+                                    'slice_spacing_um', slice_spacing_um,
+                                    *self._optional_input('pixel_size_um', pixel_size_um)).get()
 
     def register_slices_deepslice_local(self,
             allow_slicing_angle_change: bool,
-            channels: str,
             ensemble: bool,
             model: str,
             post_processing: str,
-            px_size_micron: float,
-            slices_spacing_micrometer: float):
+            slice_channels_csv: str,
+            slice_spacing_um: float,
+            pixel_size_um: Optional[float] = None):
         """
-        Uses Deepslice for affine in plane and axial registration of selected slices
+        Obsolete, use 'ABBA - DeepSlice Registration' instead. Runs DeepSlice from a user-configured conda environment on the selected slices: sets their position along the slicing axis, adds an in-plane affine registration and optionally adjusts the atlas slicing angle.
 
         Parameters:
-        allow_slicing_angle_change (bool): Allow change of atlas slicing angle
-        channels (str): Slices channels, 0-based, comma separated, '*' for all channels
-        ensemble (bool): Average of several models (slower)
-        model (str): ('mouse', 'rat') Mouse or Rat ?
-        post_processing (str): 
-        px_size_micron (float): Resampling pixel size (10 for mouse, 40 for rat)
-        slices_spacing_micrometer (float): Spacing (micrometer), used only when 'Keep order + set spacing' is selected
+        allow_slicing_angle_change (bool): Adjust atlas slicing angle. If checked, the atlas slicing angles (X and Y rotations) are set to the median angle found by DeepSlice. This changes the slicing for all slices, not only the selected ones.
+        ensemble (bool): Ensemble (average of several models, slower). If checked, DeepSlice averages the predictions of several models. Results may be better or not depending on the dataset: try both.
+        model (str): DeepSlice model. Species DeepSlice was trained on: 'mouse' or 'rat'. It should match the atlas.
+        pixel_size_um (float): Pixel size sent to DeepSlice (micrometers). Optional. Pixel size used to downsample the slices before sending them to DeepSlice. Defaults to 10.0 for mouse and 40.0 for rat; larger values are faster.
+        post_processing (str): Position post-processing. How the slice positions predicted by DeepSlice are corrected. 'Keep order': the current slice order is preserved. 'Keep order + ensure regular spacing': order preserved and slices evenly spaced, spacing estimated by DeepSlice. 'Keep order + set spacing (parameter below)': order preserved and slices evenly spaced with the spacing given below. 'No post-processing': raw DeepSlice positions, slices may be reordered.
+        slice_channels_csv (str): Slice channels. 0-based indices of the slice channels sent to DeepSlice, comma separated (e.g. '0,2'), or '*' for all channels. Selected channels are merged into an RGB image with their current display settings (color and min/max).
+        slice_spacing_um (float): Slice spacing (micrometers). Distance between consecutive slices. Only used with 'Keep order + set spacing (parameter below)'.
         """
         RegisterSlicesDeepSliceLocalCommand = jimport('ch.epfl.biop.atlas.aligner.command.RegisterSlicesDeepSliceLocalCommand')
         return self.ij.command().run(RegisterSlicesDeepSliceLocalCommand, True,
                                     'mp', self.mp,
                                     'allow_slicing_angle_change', allow_slicing_angle_change,
-                                    'channels', channels,
                                     'ensemble', ensemble,
                                     'model', model,
                                     'post_processing', post_processing,
-                                    'px_size_micron', px_size_micron,
-                                    'slices_spacing_micrometer', slices_spacing_micrometer).get()
+                                    'slice_channels_csv', slice_channels_csv,
+                                    'slice_spacing_um', slice_spacing_um,
+                                    *self._optional_input('pixel_size_um', pixel_size_um)).get()
 
     def register_slices_deepslice_web(self,
             allow_slicing_angle_change: bool,
-            channels: str,
             maintain_slices_order: bool,
             model: str,
-            px_size_micron: float):
+            slice_channels_csv: str,
+            pixel_size_um: Optional[float] = None):
         """
-        Uses Deepslice for affine in plane and axial registration of selected slices
+        Obsolete, use 'ABBA - DeepSlice Registration' instead. Registers the selected slices with the DeepSlice web interface: the downsampled slices are sent to the website by hand, and the result file is loaded back. Requires a graphical user interface.
 
         Parameters:
-        allow_slicing_angle_change (bool): Allow change of atlas slicing angle
-        channels (str): Slices channels, 0-based, comma separated, '*' for all channels
-        maintain_slices_order (bool): Keep slices order
-        model (str): ('mouse', 'rat') Mouse or Rat ?
-        px_size_micron (float): Resampling pixel size (10 for mouse, 40 for rat)
+        allow_slicing_angle_change (bool): Adjust atlas slicing angle. If checked, the atlas slicing angles (X and Y rotations) are set to the median angle found by DeepSlice. This changes the slicing for all slices, not only the selected ones.
+        maintain_slices_order (bool): Keep slice order. If checked, slices keep their current order: slices swapped by DeepSlice are moved back.
+        model (str): DeepSlice model. Species DeepSlice was trained on: 'mouse' or 'rat'. It should match the atlas.
+        pixel_size_um (float): Pixel size sent to DeepSlice (micrometers). Optional. Pixel size used to downsample the slices before sending them to DeepSlice. Defaults to 10.0 for mouse and 40.0 for rat; larger values are faster.
+        slice_channels_csv (str): Slice channels. 0-based indices of the slice channels sent to DeepSlice, comma separated (e.g. '0,2'), or '*' for all channels. Selected channels are merged into an RGB image with their current display settings (color and min/max).
         """
         RegisterSlicesDeepSliceWebCommand = jimport('ch.epfl.biop.atlas.aligner.command.RegisterSlicesDeepSliceWebCommand')
         return self.ij.command().run(RegisterSlicesDeepSliceWebCommand, True,
                                     'mp', self.mp,
                                     'allow_slicing_angle_change', allow_slicing_angle_change,
-                                    'channels', channels,
                                     'maintain_slices_order', maintain_slices_order,
                                     'model', model,
-                                    'px_size_micron', px_size_micron).get()
+                                    'slice_channels_csv', slice_channels_csv,
+                                    *self._optional_input('pixel_size_um', pixel_size_um)).get()
 
     def register_slices_edit_last(self,
             atlas_channels_csv: str,
             reuse_original_channels: bool,
-            slices_channels_csv: str):
+            slice_channels_csv: str):
         """
-        Edit the last registration of the current selected slices, if possible.
+        Manually edits the last registration of each selected slice, if it is editable: spline registrations (Elastix spline, BigWarp) open in BigWarp, affine registrations (Elastix affine, manual, DeepSlice) open in the affine editor.
 
         Parameters:
-        atlas_channels_csv (str): Atlas channels, 0-based, comma separated, '*' for all channels
-        reuse_original_channels (bool): Reuse original channels of the registration
-        slices_channels_csv (str): Slices channels, 0-based, comma separated, '*' for all channels
+        atlas_channels_csv (str): Atlas channels displayed. 0-based indices of the atlas channels displayed in the editor, comma separated (e.g. '0,2'), or '*' for all channels. Ignored if the channels used by the registration are displayed.
+        reuse_original_channels (bool): Display the channels used by the registration. If checked, the editor displays the channels used when the registration was made, and the two channel fields below are ignored.
+        slice_channels_csv (str): Slice channels displayed. 0-based indices of the slice channels displayed in the editor, comma separated (e.g. '0,2'), or '*' for all channels. Ignored if the channels used by the registration are displayed.
         """
         RegisterSlicesEditLastCommand = jimport('ch.epfl.biop.atlas.aligner.command.RegisterSlicesEditLastCommand')
         return self.ij.command().run(RegisterSlicesEditLastCommand, True,
                                     'mp', self.mp,
                                     'atlas_channels_csv', atlas_channels_csv,
                                     'reuse_original_channels', reuse_original_channels,
-                                    'slices_channels_csv', slices_channels_csv).get()
+                                    'slice_channels_csv', slice_channels_csv).get()
 
     def register_slices_elastix_affine(self,
-                                       channels_atlas_csv: str,
-                                       channels_slice_csv: str,
-                                       pixel_size_micrometer: float,
-                                       show_imageplus_registration_result: bool = False,
-                                       background_offset_value_moving: float = 0, ):
+            atlas_channels_csv: str,
+            slice_channels_csv: str,
+            pixel_size_um: float,
+            show_imageplus_registration_result: bool = False):
         """
-        Uses Elastix for affine in plane registration of selected slices
+        Automatic in-plane affine registration (translation, rotation, scaling, shear) of the selected slices to the atlas with Elastix, restricted to the current region of interest. Atlas and slice channels are paired in order and must be equal in number.
 
         Parameters:
-        background_offset_value_moving (float): Background offset value
-        channels_atlas_csv (str): Atlas channels (channels comma separated)
-        channels_slice_csv (str): Slices channels (channels comma separated)
-        pixel_size_micrometer (float): Registration re-sampling (micrometers)
-        show_imageplus_registration_result (bool): Show registration results as ImagePlus
+        atlas_channels_csv (str): Atlas channels. 0-based indices of the atlas channels to use, comma separated (e.g. '0,1'). '*' is not accepted. Channel indices are shown in the atlas display card.
+        pixel_size_um (float): Registration pixel size (micrometers). Atlas and slices are resampled at this pixel size before being registered. Smaller is more precise but slower; 40 is a good start for a mouse brain.
+        show_imageplus_registration_result (bool): Show registration images. If checked, the resampled atlas and slice images sent to Elastix are displayed as ImageJ images (for debugging).
+        slice_channels_csv (str): Slice channels. 0-based indices of the slice channels to use, comma separated (e.g. '0,1'). '*' is not accepted.
         """
         RegisterSlicesElastixAffineCommand = jimport('ch.epfl.biop.atlas.aligner.command.RegisterSlicesElastixAffineCommand')
         return self.ij.command().run(RegisterSlicesElastixAffineCommand, True,
                                     'mp', self.mp,
-                                    'background_offset_value_moving', background_offset_value_moving,
-                                    'channels_atlas_csv', channels_atlas_csv,
-                                    'channels_slice_csv', channels_slice_csv,
-                                    'pixel_size_micrometer', pixel_size_micrometer,
-                                    'show_imageplus_registration_result', show_imageplus_registration_result).get()
+                                    'atlas_channels_csv', atlas_channels_csv,
+                                    'pixel_size_um', pixel_size_um,
+                                    'show_imageplus_registration_result', show_imageplus_registration_result,
+                                    'slice_channels_csv', slice_channels_csv).get()
 
     def register_slices_elastix_spline(self,
-                                       channels_atlas_csv: str,
-                                       channels_slice_csv: str,
-                                       nb_control_points_x: int,
-                                       pixel_size_micrometer: float,
-                                       show_imageplus_registration_result: bool = False,
-                                       background_offset_value_moving: float = 0, ):
+            atlas_channels_csv: str,
+            slice_channels_csv: str,
+            nb_control_points_x: int,
+            pixel_size_um: float,
+            show_imageplus_registration_result: bool = False):
         """
-        Uses Elastix for spline in plane registration of selected slices
+        Automatic in-plane non-linear (B-spline) registration of the selected slices to the atlas with Elastix, restricted to the current region of interest. Usually run after an affine registration. Atlas and slice channels are paired in order and must be equal in number. The result can be edited in BigWarp.
 
         Parameters:
-        background_offset_value_moving (float): Background offset value
-        channels_atlas_csv (str): Atlas channels (channels comma separated)
-        channels_slice_csv (str): Slices channels (channels comma separated)
-        nb_control_points_x (int): Number of control points along X, minimum 2.
-        pixel_size_micrometer (float): Registration re-sampling (micrometers)
-        show_imageplus_registration_result (bool): Show registration results as ImagePlus
+        atlas_channels_csv (str): Atlas channels. 0-based indices of the atlas channels to use, comma separated (e.g. '0,1'). '*' is not accepted. Channel indices are shown in the atlas display card.
+        nb_control_points_x (int): Number of control points along X. Size of the B-spline control point grid along X (minimum 2), the Y count follows the region of interest aspect ratio. More points allow more local deformations.
+        pixel_size_um (float): Registration pixel size (micrometers). Atlas and slices are resampled at this pixel size before being registered. Smaller is more precise but slower; 20 is a good start for a mouse brain.
+        show_imageplus_registration_result (bool): Show registration images. If checked, the resampled atlas and slice images sent to Elastix are displayed as ImageJ images (for debugging).
+        slice_channels_csv (str): Slice channels. 0-based indices of the slice channels to use, comma separated (e.g. '0,1'). '*' is not accepted.
         """
         RegisterSlicesElastixSplineCommand = jimport('ch.epfl.biop.atlas.aligner.command.RegisterSlicesElastixSplineCommand')
         return self.ij.command().run(RegisterSlicesElastixSplineCommand, True,
                                     'mp', self.mp,
-                                    'background_offset_value_moving', background_offset_value_moving,
-                                    'channels_atlas_csv', channels_atlas_csv,
-                                    'channels_slice_csv', channels_slice_csv,
+                                    'atlas_channels_csv', atlas_channels_csv,
                                     'nb_control_points_x', nb_control_points_x,
-                                    'pixel_size_micrometer', pixel_size_micrometer,
-                                    'show_imageplus_registration_result', show_imageplus_registration_result).get()
+                                    'pixel_size_um', pixel_size_um,
+                                    'show_imageplus_registration_result', show_imageplus_registration_result,
+                                    'slice_channels_csv', slice_channels_csv).get()
+
+    def register_slices_manual_affine(self,
+            atlas_channels_csv: str,
+            slice_channels_csv: str):
+        """
+        Manual in-plane affine registration: moves, rotates, scales and shears the selected slices with a gizmo, in a single dedicated window. Selected channels are only used for display. The result can be edited later.
+
+        Parameters:
+        atlas_channels_csv (str): Atlas channels. 0-based indices of the atlas channels to use, comma separated (e.g. '0,1'). '*' is not accepted. Channel indices are shown in the atlas display card.
+        slice_channels_csv (str): Slice channels. 0-based indices of the slice channels to use, comma separated (e.g. '0,1'). '*' is not accepted.
+        """
+        RegisterSlicesManualAffineCommand = jimport('ch.epfl.biop.atlas.aligner.command.RegisterSlicesManualAffineCommand')
+        return self.ij.command().run(RegisterSlicesManualAffineCommand, True,
+                                    'mp', self.mp,
+                                    'atlas_channels_csv', atlas_channels_csv,
+                                    'slice_channels_csv', slice_channels_csv).get()
 
     def register_slices_remove_last(self):
         """
-        Remove the last registration of the current selected slices, if possible.
+        Removes the last registration of each selected slice (it can be undone).
 
         """
         RegisterSlicesRemoveLastCommand = jimport('ch.epfl.biop.atlas.aligner.command.RegisterSlicesRemoveLastCommand')
         return self.ij.command().run(RegisterSlicesRemoveLastCommand, True,
                                     'mp', self.mp).get()
 
-
     def reindex_slices(self,
-            new_indices: str):
+            new_channel_order_csv: str):
         """
-        Creates a new slice with reindexed channels.
+        Reorders, removes or duplicates the channels of the selected slices. Each selected slice is replaced by a new slice with the new channels, at the same position and with the same registrations. The same channel order is applied to all selected slices.
 
         Parameters:
-        new_indices (str): New indices in csv
+        new_channel_order_csv (str): New channel order. Comma separated 0-based indices of the original channels, in their new order: '0,2' keeps the first and third channels, '1,0' swaps the first two channels.
         """
         ReindexSlicesCommand = jimport('ch.epfl.biop.atlas.aligner.command.ReindexSlicesCommand')
         return self.ij.command().run(ReindexSlicesCommand, True,
                                     'mp', self.mp,
-                                    'new_indices', new_indices).get()
+                                    'new_channel_order_csv', new_channel_order_csv).get()
 
     def rotate_slices(self,
             angle_degrees: float,
             axis_string: str):
         """
-        To use at the beginning of the registration process only! Rotates the original unregistered selected slices
+        Rotates the selected slices around the center of the registration ROI. Z: in-plane rotation, clockwise on screen. X or Y: 180 or -180 degrees only (flip)
 
         Parameters:
-        angle_degrees (float): Angle (degrees)
-        axis_string (str): Rotation axis
+        angle_degrees (float): Angle (degrees). Rotation angle. Around Z, positive is clockwise on screen.
+        axis_string (str): Rotation axis. 'Z': in-plane rotation, any angle. 'X' or 'Y': flips the section upside down or left-right, only 180 or -180 degrees are accepted.
         """
         RotateSlicesCommand = jimport('ch.epfl.biop.atlas.aligner.command.RotateSlicesCommand')
         return self.ij.command().run(RotateSlicesCommand, True,
@@ -1592,10 +1590,10 @@ class Abba:
     def set_slices_background(self,
             white_background_value: int):
         """
-        Allow to work with white background images.
+        For brightfield images with a white background: the area outside of the selected slices images is filled with this value instead of black, which avoids dark edges during registrations and exports. Works for 8-bit, 16-bit and RGB images.
 
         Parameters:
-        white_background_value (int): White value (8-bit or rgb: 255, 16-bit:65535)
+        white_background_value (int): Background value. Pixel value used outside of the images: 255 for 8-bit or RGB images, 65535 for 16-bit images.
         """
         SetSlicesBackgroundCommand = jimport('ch.epfl.biop.atlas.aligner.command.SetSlicesBackgroundCommand')
         return self.ij.command().run(SetSlicesBackgroundCommand, True,
@@ -1605,10 +1603,10 @@ class Abba:
     def set_slices_deselected(self,
             slices_csv: str):
         """
-        Set the slices to deselect.
+        Removes slices from the current selection, by index. Other slices keep their selection state.
 
         Parameters:
-        slices_csv (str): Slices to deselect, '*' for all slices, comma separated, 0-based
+        slices_csv (str): Slice indices. 0-based indices of the slices, in the order along the slicing axis. '*' for all slices, comma separated values ('0,3'), inclusive ranges ('2:5'), ranges with a step ('0:2:10'). Negative indices count from the end: -1 is the last slice.
         """
         SetSlicesDeselectedCommand = jimport('ch.epfl.biop.atlas.aligner.command.SetSlicesDeselectedCommand')
         return self.ij.command().run(SetSlicesDeselectedCommand, True,
@@ -1616,31 +1614,31 @@ class Abba:
                                     'slices_csv', slices_csv).get()
 
     def set_slices_display_range(self,
-            channels_csv: str,
             display_max: float,
-            display_min: float):
+            display_min: float,
+            slice_channels_csv: str):
         """
-        Change min max displayed value (for each selected slice).
+        Sets the display range (min and max displayed values) of channels of the selected slices. Besides the display, it changes the images sent to DeepSlice: avoid saturated images.
 
         Parameters:
-        channels_csv (str): Channels to adjust, '*' for all channels, comma separated, 0-based
-        display_max (float): Max displayed valued
-        display_min (float): Min displayed valued
+        display_max (float): Display max. Pixel value displayed at full brightness; higher values are saturated.
+        display_min (float): Display min. Pixel value displayed as black.
+        slice_channels_csv (str): Channels. 0-based indices of the channels to adjust, comma separated (e.g. '0,2'), or '*' for all channels. Channels missing in a slice are skipped.
         """
         SetSlicesDisplayRangeCommand = jimport('ch.epfl.biop.atlas.aligner.command.SetSlicesDisplayRangeCommand')
         return self.ij.command().run(SetSlicesDisplayRangeCommand, True,
                                     'mp', self.mp,
-                                    'channels_csv', channels_csv,
                                     'display_max', display_max,
-                                    'display_min', display_min).get()
+                                    'display_min', display_min,
+                                    'slice_channels_csv', slice_channels_csv).get()
 
     def set_slices_selected(self,
             slices_csv: str):
         """
-        Set the slices to select.
+        Adds slices to the current selection, by index. Already selected slices stay selected. Most commands act on the selected slices.
 
         Parameters:
-        slices_csv (str): Slices to select, '*' for all slices, comma separated, 0-based
+        slices_csv (str): Slice indices. 0-based indices of the slices, in the order along the slicing axis. '*' for all slices, comma separated values ('0,3'), inclusive ranges ('2:5'), ranges with a step ('0:2:10'). Negative indices count from the end: -1 is the last slice.
         """
         SetSlicesSelectedCommand = jimport('ch.epfl.biop.atlas.aligner.command.SetSlicesSelectedCommand')
         return self.ij.command().run(SetSlicesSelectedCommand, True,
@@ -1648,21 +1646,21 @@ class Abba:
                                     'slices_csv', slices_csv).get()
 
     def set_slices_thickness(self,
-            thickness_in_micrometer: float):
+            thickness_um: float):
         """
-        Set the selected slices thickness - useful for a fully reconstructed brain display.
+        Sets the thickness of the selected slices along the slicing axis. It affects the 3D display (reconstructed brain) and the 3D resampled export, not the registrations.
 
         Parameters:
-        thickness_in_micrometer (float): Slice thickness in micrometer
+        thickness_um (float): Slice thickness (micrometers). Thickness of each selected slice, centered on its position.
         """
         SetSlicesThicknessCommand = jimport('ch.epfl.biop.atlas.aligner.command.SetSlicesThicknessCommand')
         return self.ij.command().run(SetSlicesThicknessCommand, True,
                                     'mp', self.mp,
-                                    'thickness_in_micrometer', thickness_in_micrometer).get()
+                                    'thickness_um', thickness_um).get()
 
     def set_slices_thickness_match_neighbors(self):
         """
-        Modifies the selected slices thickness in such a way that no space is left between slices. This is visible only in the reconstructed volume in BigDataViewer
+        Sets the thickness of each selected slice so that it extends halfway to its neighbors, leaving no gap between slices. It affects the 3D display (reconstructed brain) and the 3D resampled export, not the registrations.
 
         """
         SetSlicesThicknessMatchNeighborsCommand = jimport('ch.epfl.biop.atlas.aligner.command.SetSlicesThicknessMatchNeighborsCommand')
