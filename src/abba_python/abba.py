@@ -29,7 +29,7 @@ def get_java_dependencies():
     return ['ch.epfl.biop:ijl-utilities-wrappers:0.12.1',
             'ch.epfl.biop:ImageToAtlasRegister:0.23.1-SNAPSHOT',
             'ch.epfl.biop:bigdataviewer-biop-tools:0.24.0',
-            'ch.unige.biochem:scijava-introspect:0.1.0',
+            'ch.unige.biochem:scijava-introspect:0.2.0-SNAPSHOT',
             'sc.fiji:bigdataviewer-playground:0.23.1',
             'sc.fiji.bigdataviewer:bigdataviewer-playground-display:0.23.1',
             'com.formdev:flatlaf:3.5.1',

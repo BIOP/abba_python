@@ -2,6 +2,7 @@
 Agent API: read the state of an ABBA session as text, act with JSON actions, look at slices as images
 """
 
+import inspect
 import json
 import time
 from typing import Any, Optional, Sequence
@@ -9,6 +10,8 @@ from typing import Any, Optional, Sequence
 from scyjava import jimport
 
 from .abba import Abba
+from .command_metadata import ABBA_COMMANDS, REGISTRATION_COMMANDS
+from .commands import AbbaCommands
 
 
 class AbbaAgent:
@@ -213,10 +216,10 @@ class AbbaAgent:
         Parameters accepted in the 'parameters' of a registration written for apply, e.g.
         get_registration_parameters('Elastix2DAffineRegistration')
 
-        Found by introspection of the SciJava command the registration runs
-        (ch.epfl.biop.command.register.<type without 'Registration'>RegisterCommand). All
-        values have to be passed as strings. px, py, sx and sy (the region of interest, in mm)
-        default to the current ROI.
+        Described from the SciJava command the registration runs
+        (ch.epfl.biop.command.register.<type without 'Registration'>RegisterCommand), see
+        command_metadata.REGISTRATION_COMMANDS. All values have to be passed as strings. px, py, sx
+        and sy (the region of interest, in mm) default to the current ROI.
 
         :return: dict name -> {type, label, description, default, choices, required, style, min, max},
             see get_command_parameters; defaults are strings here
@@ -227,70 +230,91 @@ class AbbaAgent:
                                   'description': 'Applied to the registered slice positions, in mm, '
                                                  'see translate_slice'},
                     'pz': {'type': 'String', 'default': '0', 'label': 'z position', 'description': ''}}
-        parameters = self._command_inputs('ch.epfl.biop.command.register.'
-                                          + registration_type.removesuffix('Registration') + 'RegisterCommand',
-                                          skip=self._REGISTRATION_PLUGIN_INPUTS)
-        for name, parameter in parameters.items():
-            if name in ('px', 'py', 'sx', 'sy'):
+        command_name = registration_type.removesuffix('Registration') + 'RegisterCommand'
+        command = REGISTRATION_COMMANDS.get(command_name)
+        if command is None:
+            raise ValueError(f'No register command {command_name} for {registration_type}')
+        parameters = {}
+        for item in command['input']:
+            if item['name'] in self._REGISTRATION_PLUGIN_INPUTS:
+                continue
+            parameter = {key: item.get(key, True if key == 'required' else None) for key in self._INPUT_KEYS}
+            if item['name'] in ('px', 'py', 'sx', 'sy'):
                 parameter['default'] = 'optional, current ROI'
             elif parameter['default'] is not None:
                 parameter['default'] = str(parameter['default'])
+            parameters[item['name']] = parameter
         return parameters
 
-    # ABBA commands, as SciJava command classes
-    _COMMAND_PACKAGE = 'ch.epfl.biop.atlas.aligner.command'
-    # Keys of each input returned by get_command_parameters, None (required: True) when not set
+    # Keys of each input returned by get_command_parameters
     _INPUT_KEYS = ('type', 'label', 'description', 'default', 'choices', 'required', 'style', 'min', 'max')
-
-    @staticmethod
-    def _command_introspector():
-        return jimport('ch.unige.biochem.scijava.introspect.CommandIntrospector')
-
-    def _command_inputs(self, class_name: str, skip=()) -> dict:
-        """
-        Inputs of a SciJava command, described by scijava-introspect from its @Parameter annotations and
-        from the field values of a new instance (the defaults). Message items and services are left out.
-        """
-        try:
-            command_class = jimport(class_name)
-        except Exception as e:
-            raise ValueError(f'No command {class_name}') from e
-        described = json.loads(str(self._command_introspector().toJson(command_class.class_)))
-        if not described:
-            raise ValueError(f'{class_name} is not a SciJava command')
-        return {parameter['name']: {key: parameter.get(key, True if key == 'required' else None)
-                                    for key in self._INPUT_KEYS}
-                for parameter in described[0]['input'] if parameter['name'] not in skip}
 
     def describe_commands(self) -> list:
         """
-        The ABBA commands, with what they do and the messages their dialog shows
+        The ABBA commands that have a method in Abba, with what they do and the messages their dialog shows
 
-        Each of them is also a method of Abba (RegisterSlicesDeepSliceApposeCommand ->
-        register_slices_deepslice_appose); get_command_parameters() gives the inputs of one.
+        Read from command_metadata, generated with the commands. get_command_parameters() gives the
+        inputs of one.
 
-        :return: list of dicts with keys name, title, description, messages, sorted by name
+        :return: list of dicts with keys name (class), method (of Abba), title, description, messages,
+            sorted by name
         """
-        if getattr(self, '_commands', None) is None:
-            self._commands = json.loads(str(self._command_introspector().describePackage(self._COMMAND_PACKAGE, True)))
-        return [{'name': class_name.rsplit('.', 1)[-1],
-                 'title': command.get('label') or command.get('menuPath', class_name).rsplit('>', 1)[-1],
-                 'description': command.get('description', command.get('error', '')),
+        return [{'name': name,
+                 'method': command['method'],
+                 'title': command.get('label') or command.get('menuPath', name).rsplit('>', 1)[-1],
+                 'description': command.get('description', ''),
                  'messages': command.get('messages', [])}
-                for class_name, command in sorted(self._commands.items())]
+                for name, command in ABBA_COMMANDS.items() if 'method' in command]
 
-    def get_command_parameters(self, command_name: str) -> dict:
+    def get_command_parameters(self, command_name: str, initialized: bool = True) -> dict:
         """
-        Inputs of an ABBA command, with their type, default value and, when the input is a list of
-        choices (post_processing...), the exact strings it accepts. Choices computed when the command
-        opens (naming_choice, the atlas ontology keys) are not listed.
+        Parameters of the Abba method running an ABBA command: whether they are required, their default
+        and, for a list of choices (post_processing...), the exact strings accepted
 
-        :param command_name: class name, e.g. 'RegisterSlicesDeepSliceApposeCommand',
-            see describe_commands()
-        :return: dict name -> {type, label, description, default, choices, required, style, min, max}.
-            A None default means not set: the command computes its own, see its description
+        Labels, descriptions and choices come from command_metadata; required and default from the
+        method signature. Some commands compute defaults or choices when they open, from the session
+        (DeepSlice pixel size, ontology keys of naming_choice): with initialized=True, they are
+        created and initialized, without running, to report these values.
+
+        :param command_name: class name, e.g. 'RegisterSlicesDeepSliceApposeCommand', or method name,
+            e.g. 'register_slices_deepslice_appose', see describe_commands()
+        :param initialized: report the values computed when the command opens, if any
+        :return: dict name -> {type (Java), label, description, default, choices, required, style,
+            min, max}. A parameter that is not required and has a None default is computed by the
+            command: default then gives the value it computes now, if initialized
         """
-        return self._command_inputs(self._COMMAND_PACKAGE + '.' + command_name, skip={'mp'})
+        matches = [(name, command) for name, command in ABBA_COMMANDS.items()
+                   if 'method' in command and command_name in (name, command['method'])]
+        if not matches:
+            raise ValueError(f'No ABBA command named {command_name}, see describe_commands()')
+        command = matches[0][1]
+        items = command['input']
+        if initialized and (command.get('hasInitializer') or command.get('dynamic')):
+            items = self._initialized_inputs(command)
+        signature = inspect.signature(getattr(AbbaCommands, command['method']))
+        parameters = {}
+        for item in items:
+            parameter = signature.parameters.get(item['name'].lower())
+            if parameter is None:
+                continue  # the session, set by the method
+            required = parameter.default is inspect.Parameter.empty
+            default = None if required else parameter.default
+            if default is None and not required and initialized:
+                default = item.get('default')
+            parameters[parameter.name] = dict(
+                {key: item.get(key) for key in self._INPUT_KEYS}, default=default, required=required)
+        return parameters
+
+    def _initialized_inputs(self, command: dict) -> list:
+        """Inputs of a command created with this session and initialized, see scijava-introspect"""
+        HashMap = jimport('java.util.HashMap')
+        preset = HashMap()
+        for item in command['input']:
+            if item['type'] == 'MultiSlicePositioner':
+                preset.put(item['name'], self.mp)
+        introspector = jimport('ch.unige.biochem.scijava.introspect.CommandIntrospector')
+        described = introspector.describeInitialized(self.ij.context(), jimport(command['name']).class_, preset)
+        return json.loads(str(described))['input']
 
     # ------------------------ Hand-made in-plane corrections
     # A registration is appended after the existing ones: a row-packed matrix [m00 m01 0 tx, m10 m11 0 ty,
