@@ -12,5 +12,6 @@ __email__ = "nicolas.chiaruttini@epfl.ch"
 
 # Public API
 from .abba import Abba
+from .agent import AbbaAgent
 
-__all__ = ['Abba']
+__all__ = ['Abba', 'AbbaAgent']
