@@ -48,7 +48,10 @@ INDENT = '    '
 
 
 def pythonize(class_name: str) -> str:
-    """Method name of a command class, e.g. RegisterSlicesDeepSliceApposeCommand -> register_slices_deepslice_appose"""
+    """
+    Method name of a command class,
+    e.g. RegisterSlicesDeepSliceApposeCommand -> register_slices_deepslice_appose
+    """
     if class_name.startswith('ABBA'):
         class_name = class_name[4:]
     for acronym, word in (('BDV', 'Bdv'), ('ImageJ', 'Imagej'), ('QuPath', 'Qupath'), ('QuickNII', 'Quicknii'),
@@ -111,7 +114,8 @@ class Parameter:
         text = label + ('. ' if label and description else '') + description
         if self.optional:
             text += ' If None, the command computes the value.'
-        return f'{self.python_name} : {self.annotation}\n' + textwrap.indent(textwrap.fill(text or self.name, 96), INDENT)
+        wrapped = textwrap.indent(textwrap.fill(text or self.name, 96), INDENT)
+        return f'{self.python_name} : {self.annotation}\n' + wrapped
 
 
 def title(command: dict[str, Any]) -> str:

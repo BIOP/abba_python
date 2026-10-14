@@ -53,7 +53,8 @@ while linking jars: the paths exceed 260 characters. The default `~/.jgo` is fin
 
 - Run tests: `pytest`
 - Single test: `pytest tests/test_abba_python.py::test_something`
-- Lint + autofix: `ruff check --fix .` and `ruff format .`
+- Lint + autofix: `ruff check --fix .` (no `ruff format`: the code keeps its own style,
+  single quotes, lines up to 120)
 - Type check: `mypy` (strict, configured over `src` in `pyproject.toml`; `imagej`, `jpype`
   and `scyjava` have no types, so Java objects are `Any`)
 - Run all pre-commit hooks: `pre-commit run --all-files`

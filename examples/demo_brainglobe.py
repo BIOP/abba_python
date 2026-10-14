@@ -2,8 +2,9 @@
 # Minimal smoke test: start ABBA directly with a BrainGlobe atlas.
 # The atlas is downloaded and parsed entirely on the Java side (via Appose),
 # so no Python-side brainglobe-atlasapi install is required.
-import jpype
 import time
+
+import jpype
 
 from abba_python.abba import Abba
 

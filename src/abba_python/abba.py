@@ -1,19 +1,14 @@
 """Main module."""
 
-# Core
 import os
 import time
-
-# PyImageJ / Scyjava
-import scyjava
-from scyjava import jimport
-import imagej
-
-# JPype
-from jpype.types import JString, JArray
-#
 from collections.abc import Iterable, Sequence
 from typing import Any, ClassVar, Literal
+
+import imagej
+import scyjava
+from jpype.types import JArray, JString
+from scyjava import jimport
 
 from .commands import AbbaCommands
 
@@ -59,14 +54,20 @@ def configure_java() -> None:
 
 def start_imagej(headless: bool = False,
                  log_level: LogLevel = 'INFO') -> None:
+    """
+    Starts Fiji with the full ABBA GUI (the ABBA commands in the menus), instead of an Abba object
+
+    :param headless: starts without any window
+    :param log_level: logging level of Bio-Formats
+    """
     mode = "headless"
     if not headless:
         mode = "interactive"
     configure_java()
     ij = imagej.init(get_java_dependencies(), mode=mode)
 
-    from scyjava import jimport
     from jpype.types import JString
+    from scyjava import jimport
 
     DebugTools = jimport('loci.common.DebugTools')
     DebugTools.enableLogging(JString(log_level))
@@ -90,7 +91,9 @@ def start_imagej(headless: bool = False,
             # directory already exists ?
             pass
     else:
-        print('[WARNING] Support for third-party brain atlases through BrainGlobe is primarily tested on Windows. If you encounter any OS-specific issues on ' + platform.system() + ', please report them to the developers: https://github.com/BIOP/abba_python/issues')
+        print('[WARNING] Support for third-party brain atlases through BrainGlobe is primarily tested on Windows. '
+              'If you encounter any OS-specific issues on ' + platform.system() + ', please report them to the '
+              'developers: https://github.com/BIOP/abba_python/issues')
     pass
 
     if not headless:
@@ -105,6 +108,7 @@ def start_imagej(headless: bool = False,
 
 class Abba(AbbaCommands):
     """Abba object which can be used to register sections to a BrainGlobe atlas object
+
     Parameters
     ----------
     atlas_name :
@@ -225,18 +229,20 @@ class Abba(AbbaCommands):
                                    ).get().getOutput('mp')
 
     def print_config(self) -> None:
-        # Displays some config information
+        """Prints the Java dependencies and the atlas cache folder"""
         print('- Main Java Dependencies:')
         print(get_java_dependencies())
         print('- Atlas cache folder:')
         print(self.get_atlas_cache_dir())
 
     def set_atlas_cache_dir(self, atlas_dir: str) -> None:
+        """Sets the folder where atlases are downloaded and cached"""
         File = jimport('java.io.File')
         AtlasLocationHelper = jimport('ch.epfl.biop.atlas.AtlasLocationHelper')
         AtlasLocationHelper.defaultCacheDir = File(JString(atlas_dir))
 
     def get_atlas_cache_dir(self) -> str:
+        """Folder where atlases are downloaded and cached"""
         AtlasLocationHelper = jimport('ch.epfl.biop.atlas.AtlasLocationHelper')
         return str(AtlasLocationHelper.getAtlasCacheDir())
 
@@ -302,6 +308,7 @@ class Abba(AbbaCommands):
             pass
 
     def get_bdv_view(self) -> Any:
+        """The BigDataViewer view of this session, once show_bdv_ui has been called"""
         return self.bdv_view
 
     # ------------------------ IMPORT
@@ -351,22 +358,28 @@ class Abba(AbbaCommands):
 
     # ------------------------ SLICE SELECTION
     def select_all_slices(self) -> None:
+        """Selects all slices"""
         self.mp.selectSlice(self.mp.getSlices())  # select all
 
     def deselect_all_slices(self) -> None:
-        self.mp.deselectSlice(self.mp.getSlices())  # select all
+        """Deselects all slices"""
+        self.mp.deselectSlice(self.mp.getSlices())
 
     def get_n_slices(self) -> int:
+        """Number of slices in the session"""
         return int(self.mp.getSlices().size())
 
     def select_slices(self, indices: Iterable[int]) -> None:
+        """Selects the slices at these indices (0-based, in slice order), in addition to the selected ones"""
         for index in indices:
-            self.mp.selectSlice(self.mp.getSlices().get(index))  # select the last slice
+            self.mp.selectSlice(self.mp.getSlices().get(index))
 
     def change_display_settings(self, channel_index: int, range_min: float, range_max: float) -> None:
+        """Sets the display range of a channel of the selected slices"""
         for abba_slice in self.mp.getSlices():
             if abba_slice.isSelected():
                 abba_slice.setDisplayRange(channel_index, range_min, range_max)
 
     def wait_for_end_of_tasks(self) -> None:
+        """Waits until the tasks queued on the slices (registrations...) are done"""
         self.mp.waitForTasks()

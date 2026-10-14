@@ -1,6 +1,7 @@
 # examples/demo_gui.py
-import jpype
 import time
+
+import jpype
 
 from abba_python.abba import Abba
 
