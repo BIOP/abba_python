@@ -21,7 +21,7 @@ description = "Aligning Big Brains and Atlases (ABBA), controlled from python."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "BSD-3-Clause" }
-authors = [{ name = "Nicolas Chiaruttini", email = "nicolas.chiaruttini@epfl.ch" }]
+authors = [{ name = "Nicolas Chiaruttini", email = "nicolas.chiaruttini@unige.ch" }]
 # https://pypi.org/classifiers/
 classifiers = [
     "Development Status :: 3 - Alpha",

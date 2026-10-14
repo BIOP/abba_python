@@ -8,7 +8,7 @@ try:
 except PackageNotFoundError:
     __version__ = "uninstalled"
 __author__ = "Nicolas Chiaruttini"
-__email__ = "nicolas.chiaruttini@epfl.ch"
+__email__ = "nicolas.chiaruttini@unige.ch"
 
 # Public API
 from .abba import Abba

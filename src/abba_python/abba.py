@@ -53,12 +53,13 @@ def configure_java() -> None:
 
 
 def start_imagej(headless: bool = False,
-                 log_level: LogLevel = 'INFO') -> None:
+                 log_level: LogLevel = 'INFO') -> Any:
     """
     Starts Fiji with the full ABBA GUI (the ABBA commands in the menus), instead of an Abba object
 
     :param headless: starts without any window
     :param log_level: logging level of Bio-Formats
+    :return: the ImageJ instance, which can be passed to Abba to share its JVM
     """
     mode = "headless"
     if not headless:
@@ -104,6 +105,7 @@ def start_imagej(headless: bool = False,
     from abba_python import __version__
     python_info = 'ABBA Python ' + str(__version__)
     ABBAForumHelpCommand.pythonInformation = JString(python_info)
+    return ij
 
 
 class Abba(AbbaCommands):
