@@ -69,7 +69,7 @@ In your environment, launch Python and run:
 
 ```python
 from abba_python import abba
-abba.start_imagej()
+ij = abba.start_imagej()
 ```
 
 You can then use ABBA within Fiji. ABBA is typically used together with [QuPath](https://qupath.github.io/): a QuPath project can serve as input for ABBA, and the registration results can be imported back into QuPath for further processing.
@@ -81,10 +81,17 @@ The `Abba` object drives a registration session programmatically. Any [BrainGlob
 ```python
 from abba_python.abba import Abba
 
-# 'example_mouse_100um' is the small BrainGlobe demo atlas — quick to download
-abba = Abba('example_mouse_100um')
+# 'example_mouse_100um' is the small BrainGlobe demo atlas — quick to download.
+# BrainGlobe atlases are named with their version: versions change the region ids.
+abba = Abba('example_mouse_100um@3.0')
 abba.show_bdv_ui()  # opens a BigDataViewer window
 ```
+
+Every ABBA command is a method of `Abba`, with keyword arguments: for example
+`abba.import_slices_from_files(...)`, `abba.distribute_slices()`, `abba.register_slices_deepslice_appose(...)`,
+`abba.undo()` or `abba.get_state()`. The parameters and their defaults are those of the ABBA command, and each
+method's docstring describes them (`help(Abba.distribute_slices)`). A parameter without default must be given:
+otherwise ABBA asks for it in a dialog.
 
 See the [`examples/`](examples) folder for runnable scripts (`demo_brainglobe.py`, `demo_api.py`, `demo_bench.py`, `demo_gui.py`).
 
