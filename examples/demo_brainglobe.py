@@ -15,8 +15,9 @@ def main():
 
     # 'example_mouse_100um' is the small BrainGlobe demo atlas: quick to
     # download, ideal to check that BrainGlobe atlas loading works end to end.
-    # Any BrainGlobe atlas name works here (e.g. 'allen_mouse_25um').
-    abba = Abba('example_mouse_100um')
+    # Any BrainGlobe atlas name works here (e.g. 'allen_mouse_25um@3.0'), with
+    # its version: atlas versions change the region ids, so ABBA asks for one.
+    abba = Abba('example_mouse_100um@3.0')
     abba.show_bdv_ui()
 
     while jpype.isJVMStarted():
