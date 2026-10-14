@@ -287,6 +287,45 @@ class AbbaCommands:
         """
         return self._run_command('ch.epfl.biop.atlas.aligner.command.ABBAUserFeedbackCommand', {})
 
+    def auto_display_range(self, *,
+            high_percentile: float = 99.9,
+            low_percentile: float = 0.1,
+            same_range_for_all_slices: bool = True,
+            slice_channels_csv: str = '*') -> str | None:
+        """
+        ABBA - Auto Display Range
+
+        Sets the display range of channels of the selected slices from percentiles of their pixel values,
+        measured on a downsampled resolution level. Besides the display, it changes the images sent to
+        DeepSlice, which works best without saturation: run it before DeepSlice.
+
+        Parameters
+        ----------
+        high_percentile : float
+            High percentile. Percentile of the pixel values displayed at full brightness: 99.9 saturates
+            0.1% of the pixels.
+        low_percentile : float
+            Low percentile. Percentile of the pixel values displayed as black.
+        same_range_for_all_slices : bool
+            Same range for all slices. One range per channel, measured on all the selected slices together,
+            so that slices look alike; otherwise one range per slice and channel.
+        slice_channels_csv : str
+            Channels. 0-based indices of the channels to adjust, comma separated (e.g. '0,2'), or '*' for
+            all channels. Channels missing in a slice, and RGB channels, are skipped.
+
+        Returns
+        -------
+        str | None
+            Display ranges. The ranges set: per channel, or per slice and channel.
+        """
+        return self._run_command('ch.epfl.biop.atlas.aligner.command.AutoDisplayRangeCommand', {
+            'mp': self.mp,
+            'high_percentile': high_percentile,
+            'low_percentile': low_percentile,
+            'same_range_for_all_slices': same_range_for_all_slices,
+            'slice_channels_csv': slice_channels_csv,
+        }, output='display_ranges', convert=str)
+
     def deepslice_documentation(self) -> Any:
         """
         DeepSlice Info
@@ -301,6 +340,50 @@ class AbbaCommands:
             The command module, once the command has run
         """
         return self._run_command('ch.epfl.biop.atlas.aligner.command.DeepSliceDocumentationCommand', {})
+
+    def delete_slices(self, *,
+            slices_csv: str = '') -> Any:
+        """
+        ABBA - Delete Slices
+
+        Removes slices from the session, as the delete action of the ABBA window does. No file is touched,
+        and undo restores them. Slide scanner files often hold images that are not sections (label,
+        overview, macro): check their names in the state before deleting.
+
+        Parameters
+        ----------
+        slices_csv : str
+            Slices. 0-based indices of the slices along the slicing axis, comma separated (e.g. '0,3'), '*'
+            for all slices, or empty for the selected slices. Indices follow the slice order and change when
+            a slice moves.
+
+        Returns
+        -------
+        Any
+            The command module, once the command has run
+        """
+        return self._run_command('ch.epfl.biop.atlas.aligner.command.DeleteSlicesCommand', {
+            'mp': self.mp,
+            'slices_csv': slices_csv,
+        })
+
+    def distribute_slices(self) -> Any:
+        """
+        ABBA - Distribute Slices
+
+        Spaces the selected slices evenly along the slicing axis, as 'Distribute Slices [D]' does in the
+        ABBA window. The first and last selected slices and the key slices (ABBA - Set Key Slices) do not
+        move; the slices between two of them are spaced evenly. Needs at least 3 selected slices. One undo
+        step.
+
+        Returns
+        -------
+        Any
+            The command module, once the command has run
+        """
+        return self._run_command('ch.epfl.biop.atlas.aligner.command.DistributeSlicesCommand', {
+            'mp': self.mp,
+        })
 
     def export_atlas_to_imagej(self, *,
             atlas_channels_csv: str = '*',
@@ -445,7 +528,8 @@ class AbbaCommands:
         For each selected slice imported from a QuPath project, saves its atlas regions and its registration
         (ABBA-RoiSet and ABBA-Transform files) in the QuPath project folder of the image. They are then
         imported in QuPath with the ABBA extension. Slices not imported from a QuPath project are not
-        exported.
+        exported: slices opened from files can be exported with 'ABBA - Export Slices To New QuPath
+        Project'.
 
         Parameters
         ----------
@@ -687,6 +771,32 @@ class AbbaCommands:
             'slice_channels_csv': slice_channels_csv,
         }, output='image')
 
+    def export_slices_to_new_qupath_project(self, *,
+            project_folder: str | os.PathLike[str]) -> Any:
+        """
+        ABBA - Export Slices To New QuPath Project
+
+        Creates a QuPath project (QuPath 0.7) containing the images of the selected slices, with their atlas
+        regions and their registration (ABBA-RoiSet and ABBA-Transform files), which are imported in QuPath
+        with the ABBA extension. Only slices opened from a single series of a 2D file with Bio-Formats can
+        be exported, one slice per image; use 'ABBA - Export Registrations To QuPath Project' for slices
+        imported from a QuPath project.
+
+        Parameters
+        ----------
+        project_folder : str | os.PathLike[str]
+            QuPath project folder. Folder of the new QuPath project. It must be empty or not exist yet.
+
+        Returns
+        -------
+        Any
+            The command module, once the command has run
+        """
+        return self._run_command('ch.epfl.biop.atlas.aligner.command.ExportSlicesToNewQuPathProjectCommand', {
+            'mp': self.mp,
+            'project_folder': project_folder,
+        })
+
     def export_slices_to_quicknii_dataset(self, *,
             dataset_folder: str | os.PathLike[str],
             convert_to_8_bits: bool = True,
@@ -795,27 +905,75 @@ class AbbaCommands:
             'slice_channels_csv': slice_channels_csv,
         }, output='success', convert=bool)
 
+    def get_state(self, *,
+            full: bool = False,
+            max_string_length: int = 200,
+            slices_csv: str = '*',
+            timeout_s: float = 20.0) -> str | None:
+        """
+        ABBA - Get State
+
+        Returns the state of the session as JSON, once the queued work is done or after 'timeout_s' seconds.
+        Compact by default: 'pending_actions', the number of queued actions not done yet - above 0,
+        positions and registrations are not final: call 'ABBA - Wait' -, the last 'failures' of the session
+        (10 at most, one line each), the atlas, its channels in index order, the slicing angles, the region
+        of interest, and per slice its index, name, position 'z_mm' (as displayed), 'thickness_mm',
+        selection, key slice flag, channel names, registrations and 'pending' actions if any. With 'full':
+        the content of a state file instead, plus per slice its index, name, channels, selection and
+        position in both conventions ('z_mm' as displayed, 'slicing_axis_position' as stored), long
+        transforms elided, and 'pending_actions' and 'failures' as well.
+
+        Parameters
+        ----------
+        full : bool
+            Full state. Returns the full state (every action, with its transforms) instead of the compact
+            summary.
+        max_string_length : int
+            Max string length. With 'full': longer strings, like spline transforms, are elided; 0 keeps them
+            all.
+        slices_csv : str
+            Slices. 0-based indices of the slices along the slicing axis, comma separated (e.g. '0,3'), '*'
+            for all slices, or empty for the selected slices. Indices follow the slice order and change when
+            a slice moves.
+        timeout_s : float
+            Timeout (s). Longest wait for the queued actions, in seconds; the state is returned anyway after
+            it.
+
+        Returns
+        -------
+        str | None
+            State. The state, as JSON.
+        """
+        return self._run_command('ch.epfl.biop.atlas.aligner.command.GetStateCommand', {
+            'mp': self.mp,
+            'full': full,
+            'max_string_length': max_string_length,
+            'slices_csv': slices_csv,
+            'timeout_s': timeout_s,
+        }, output='state', convert=str)
+
     def import_demo_slices_omero(self, *,
             demo_dataset: Literal['25 sections', '97 sections'],
             project_directory: str | os.PathLike[str] | None = None) -> Any:
         """
         ABBA - Open Demo Slices From OMERO
 
-        Imports demo mouse brain sections streamed from a public OMERO server, through a QuPath project
-        downloaded from Zenodo. Requires an internet connection and the OMERO dependencies.
+        Imports demo mouse brain sections streamed from the German BioImaging OMERO server (shared read-only
+        demo account, no credentials needed), through a QuPath project downloaded from Zenodo. Requires an
+        internet connection and the OMERO dependencies.
 
-        Dialog message: Import Demo Slices These Demo slices are kindly hosted within the public German-
-        BioImaging OMERO instance. For more information, please visit https://forum.image.sc/t/trends-in-
-        microscopy-2023-omero-server/101652 The QuPath project containing these slices can also be directly
-        downloaded from Zenodo.
+        Dialog message: Import Demo Slices These Demo slices are kindly hosted on the German BioImaging
+        OMERO server, and streamed through a shared read-only demo account (no credentials needed). For more
+        information, please visit https://forum.image.sc/t/trends-in-microscopy-2023-omero-server/101652 The
+        QuPath project containing these slices can also be directly downloaded from Zenodo.
 
         Parameters
         ----------
         demo_dataset : Literal['25 sections', '97 sections']
             Demo dataset. '25 sections': a subset, faster to try ABBA. '97 sections': the full brain.
         project_directory : str | os.PathLike[str] | None
-            QuPath project folder (optional). Existing folder where the demo QuPath project is downloaded,
-            to keep it and export registrations to it. If empty or missing, a temporary folder is used. If
+            QuPath project folder (optional). Folder where the demo QuPath project is downloaded, to keep it
+            and export registrations to it; created if missing. If empty, a temporary folder is used. If
             None, the command computes the value.
 
         Returns
@@ -1100,6 +1258,36 @@ class AbbaCommands:
             'mp': self.mp,
         })
 
+    def move_slices(self, *,
+            slices_csv: str,
+            z_mm_csv: str) -> Any:
+        """
+        ABBA - Move Slices
+
+        Moves slices along the slicing axis to the given positions, as dragging them in the ABBA window
+        does. Positions are in mm, in the displayed convention ('z_mm' in ABBA - Get State). One undo step.
+        Slice indices change after a move: re-read the state.
+
+        Parameters
+        ----------
+        slices_csv : str
+            Slices. 0-based indices of the slices to move, comma separated (e.g. '0,3'), in the current
+            order along the slicing axis.
+        z_mm_csv : str
+            Positions (mm). New position of each slice along the slicing axis, in mm, comma separated, one
+            per slice index (e.g. '6.2,6.6'). Displayed convention, as 'z_mm' in ABBA - Get State.
+
+        Returns
+        -------
+        Any
+            The command module, once the command has run
+        """
+        return self._run_command('ch.epfl.biop.atlas.aligner.command.MoveSlicesCommand', {
+            'mp': self.mp,
+            'slices_csv': slices_csv,
+            'z_mm_csv': z_mm_csv,
+        })
+
     def raster_slices(self, *,
             interpolate: bool = False,
             pixel_size_um: float = 10.0) -> Any:
@@ -1168,7 +1356,8 @@ class AbbaCommands:
         ----------
         atlas_channels_csv : str
             Atlas channels. 0-based indices of the atlas channels to use, comma separated (e.g. '0,1'). '*'
-            is not accepted. Channel indices are shown in the atlas display card.
+            is not accepted. The channels in index order are 'atlas_channels' in 'ABBA - Get State', and in
+            the atlas display card.
         slice_channels_csv : str
             Slice channels. 0-based indices of the slice channels to use, comma separated (e.g. '0,1'). '*'
             is not accepted.
@@ -1225,9 +1414,10 @@ class AbbaCommands:
         """
         ABBA - DeepSlice Registration
 
-        Runs DeepSlice (installed automatically in a local Python environment) on the selected slices: sets
-        their position along the slicing axis, adds an in-plane affine registration and optionally adjusts
-        the atlas slicing angle. The result depends on the slices display settings: avoid saturation.
+        Runs DeepSlice (installed automatically in a local Python environment) on the selected slices, after
+        the command returns - follow it with 'ABBA - Wait': sets their position along the slicing axis, adds
+        an in-plane affine registration and optionally adjusts the atlas slicing angle. The result depends
+        on the slices display settings: avoid saturation.
 
         Dialog message: Don't forget to adjust min/max display settings! Almost 50% of images sent by ABBA
         users to DeepSlice are over-saturated. (and thus, badly registered)
@@ -1245,6 +1435,9 @@ class AbbaCommands:
             (parameter below)': order preserved and slices evenly spaced with the spacing given below. 'No
             post-processing': raw DeepSlice positions, slices may be reordered. 'Keep current slice
             positions (in-plane registration only)': the slices are not moved, only registered in plane.
+            Order and spacing only consider the selected slices: to re-register a few slices without moving
+            them past their neighbours, use 'Keep current slice positions (in-plane registration only)';
+            with one slice, no order or spacing applies.
         allow_slicing_angle_change : bool
             Adjust atlas slicing angle. If checked, the atlas slicing angles (X and Y rotations) are set to
             the median angle found by DeepSlice. This changes the slicing for all slices, not only the
@@ -1443,8 +1636,9 @@ class AbbaCommands:
         ABBA - Elastix Registration (Affine)
 
         Automatic in-plane affine registration (translation, rotation, scaling, shear) of the selected
-        slices to the atlas with Elastix, restricted to the current region of interest. Atlas and slice
-        channels are paired in order and must be equal in number.
+        slices to the atlas with Elastix, restricted to the current region of interest. Only queues the
+        registrations: follow with 'ABBA - Wait'. Atlas and slice channels are paired in order and must be
+        equal in number.
 
         Dialog message: Atlas and slice channels are paired in order: '0,1' and '1,0' registers atlas
         channel 0 with slice channel 1, and atlas channel 1 with slice channel 0.
@@ -1453,7 +1647,8 @@ class AbbaCommands:
         ----------
         atlas_channels_csv : str
             Atlas channels. 0-based indices of the atlas channels to use, comma separated (e.g. '0,1'). '*'
-            is not accepted. Channel indices are shown in the atlas display card.
+            is not accepted. The channels in index order are 'atlas_channels' in 'ABBA - Get State', and in
+            the atlas display card.
         slice_channels_csv : str
             Slice channels. 0-based indices of the slice channels to use, comma separated (e.g. '0,1'). '*'
             is not accepted.
@@ -1488,8 +1683,8 @@ class AbbaCommands:
 
         Automatic in-plane non-linear (B-spline) registration of the selected slices to the atlas with
         Elastix, restricted to the current region of interest. Usually run after an affine registration.
-        Atlas and slice channels are paired in order and must be equal in number. The result can be edited
-        in BigWarp.
+        Only queues the registrations: follow with 'ABBA - Wait'. Atlas and slice channels are paired in
+        order and must be equal in number. The result can be edited in BigWarp.
 
         Dialog message: Atlas and slice channels are paired in order: '0,1' and '1,0' registers atlas
         channel 0 with slice channel 1, and atlas channel 1 with slice channel 0.
@@ -1498,7 +1693,8 @@ class AbbaCommands:
         ----------
         atlas_channels_csv : str
             Atlas channels. 0-based indices of the atlas channels to use, comma separated (e.g. '0,1'). '*'
-            is not accepted. Channel indices are shown in the atlas display card.
+            is not accepted. The channels in index order are 'atlas_channels' in 'ABBA - Get State', and in
+            the atlas display card.
         slice_channels_csv : str
             Slice channels. 0-based indices of the slice channels to use, comma separated (e.g. '0,1'). '*'
             is not accepted.
@@ -1544,7 +1740,8 @@ class AbbaCommands:
         ----------
         atlas_channels_csv : str
             Atlas channels. 0-based indices of the atlas channels to use, comma separated (e.g. '0,1'). '*'
-            is not accepted. Channel indices are shown in the atlas display card.
+            is not accepted. The channels in index order are 'atlas_channels' in 'ABBA - Get State', and in
+            the atlas display card.
         slice_channels_csv : str
             Slice channels. 0-based indices of the slice channels to use, comma separated (e.g. '0,1'). '*'
             is not accepted.
@@ -1630,6 +1827,93 @@ class AbbaCommands:
             'angle_degrees': angle_degrees,
             'axis_string': axis_string,
         })
+
+    def set_atlas_slicing_angles(self, *,
+            x_degrees: float,
+            y_degrees: float) -> str | None:
+        """
+        ABBA - Set Atlas Slicing Angles
+
+        Sets the angles at which the atlas is sliced, for all slices of the session: the correction for a
+        cutting plane that was not perfectly orthogonal. DeepSlice sets them when 'Adjust atlas slicing
+        angle' is checked. Not undoable: note the current angles first (ABBA - Get State,
+        slicing_angle_x_deg and slicing_angle_y_deg). 'ABBA - Adjust Slicing' is its interactive form.
+
+        Parameters
+        ----------
+        x_degrees : float
+            Rotation around X (degrees). Rotation of the slicing plane around the horizontal axis of the
+            sections.
+        y_degrees : float
+            Rotation around Y (degrees). Rotation of the slicing plane around the vertical axis of the
+            sections.
+
+        Returns
+        -------
+        str | None
+            Angles. The angles now in use, in degrees.
+        """
+        return self._run_command('ch.epfl.biop.atlas.aligner.command.SetAtlasSlicingAnglesCommand', {
+            'mp': self.mp,
+            'x_degrees': x_degrees,
+            'y_degrees': y_degrees,
+        }, output='angles', convert=str)
+
+    def set_key_slices(self, *,
+            key: bool = True,
+            slices_csv: str = '') -> Any:
+        """
+        ABBA - Set Key Slices
+
+        Marks slices as key slices (or unmarks them). Key slices keep their position when ABBA - Distribute
+        Slices spaces the others evenly: place 2 or 3 of them where you trust the position. One undo step.
+
+        Parameters
+        ----------
+        key : bool
+            Key slice. Checked: mark as key slices. Unchecked: remove the mark.
+        slices_csv : str
+            Slices. 0-based indices of the slices along the slicing axis, comma separated (e.g. '0,3'), '*'
+            for all slices, or empty for the selected slices. Indices follow the slice order and change when
+            a slice moves.
+
+        Returns
+        -------
+        Any
+            The command module, once the command has run
+        """
+        return self._run_command('ch.epfl.biop.atlas.aligner.command.SetKeySlicesCommand', {
+            'mp': self.mp,
+            'key': key,
+            'slices_csv': slices_csv,
+        })
+
+    def set_region_of_interest(self, *,
+            region_mm: str = '') -> str | None:
+        """
+        ABBA - Set Region Of Interest
+
+        Sets the rectangular region of interest (ROI) of the session: registrations only consider this
+        region, and exports to images are cropped to it. It applies to all slices. For hemi-sections,
+        restrict it to the hemisphere, and restore the full size afterwards. 'ABBA - Get State' gives the
+        current one (roi_mm).
+
+        Parameters
+        ----------
+        region_mm : str
+            Region (mm). 'x,y,width,height' in mm, x and y being the top left corner, in the coordinates of
+            the rulers of 'ABBA - Snapshot' (the full atlas section is centred on 0). Empty for the full
+            atlas section.
+
+        Returns
+        -------
+        str | None
+            Region of interest (mm). The region now in use: x,y,width,height in mm.
+        """
+        return self._run_command('ch.epfl.biop.atlas.aligner.command.SetRegionOfInterestCommand', {
+            'mp': self.mp,
+            'region_mm': region_mm,
+        }, output='roi_mm', convert=str)
 
     def set_slices_background(self, *,
             white_background_value: int = 255) -> Any:
@@ -1778,4 +2062,122 @@ class AbbaCommands:
         """
         return self._run_command('ch.epfl.biop.atlas.aligner.command.SetSlicesThicknessMatchNeighborsCommand', {
             'mp': self.mp,
+        })
+
+    def snapshot(self, *,
+            columns: int,
+            registration_step_back: int,
+            atlas_channel: int = -1,
+            pixel_size_mm: float = 0.025,
+            region_mm: str = '',
+            show_region_borders: bool = True,
+            show_region_labels: bool = True,
+            slice_channels_csv: str = '*',
+            slices_csv: str = '') -> Any:
+        """
+        ABBA - Snapshot
+
+        Renders slices with the atlas region borders at their current registration, or an earlier one,
+        independently of the window: a header describes each slice and rulers give coordinates in mm.
+        Several slices are tiled. Region labels are the atlas at the slice position, not an observation:
+        after an import that position is a placeholder (the header says 'reg=0'). Hide borders and labels to
+        look at the tissue alone.
+
+        Parameters
+        ----------
+        columns : int
+            Columns. Tiles per row when several slices are rendered, 0 for automatic.
+        registration_step_back : int
+            Registration step back. Renders the slices as they were this many registrations ago, 0 for their
+            current registration (as 'View Previous' in the window). The header then says 'reg=shown/total',
+            e.g. 'reg=2/4'; a slice with fewer registrations is rendered unregistered. Only the
+            registrations are undone: the slice keeps its current position along the slicing axis.
+        atlas_channel : int
+            Atlas channel. Index of an atlas channel blended with the slice, -1 for none ('atlas_channels'
+            in 'ABBA - Get State' lists them in index order).
+        pixel_size_mm : float
+            Pixel size (mm). Pixel size of the rendered image; smaller is sharper and slower.
+        region_mm : str
+            Region (mm). Rendered region 'x,y,width,height' in mm, x and y being its top left corner as read
+            on the rulers (e.g. '-1,0.5,2,2' for a 2 mm square). Empty for the whole region of interest.
+            With a small region, lower the pixel size to see details.
+        show_region_borders : bool
+            Show region borders
+        show_region_labels : bool
+            Show region labels
+        slice_channels_csv : str
+            Slice channels. 0-based indices of the slice channels to render, comma separated (e.g. '0' for
+            the first channel alone), or '*' for all channels. Each channel is rendered with its current
+            display settings.
+        slices_csv : str
+            Slices. 0-based indices of the slices along the slicing axis, comma separated (e.g. '0,3'), '*'
+            for all slices, or empty for the selected slices. Indices follow the slice order and change when
+            a slice moves.
+
+        Returns
+        -------
+        Any
+            The command module, once the command has run
+        """
+        return self._run_command('ch.epfl.biop.atlas.aligner.command.SnapshotCommand', {
+            'mp': self.mp,
+            'columns': columns,
+            'registration_step_back': registration_step_back,
+            'atlas_channel': atlas_channel,
+            'pixel_size_mm': pixel_size_mm,
+            'region_mm': region_mm,
+            'show_region_borders': show_region_borders,
+            'show_region_labels': show_region_labels,
+            'slice_channels_csv': slice_channels_csv,
+            'slices_csv': slices_csv,
+        })
+
+    def undo(self, *,
+            steps: int = 1) -> Any:
+        """
+        ABBA - Undo or Redo
+
+        Undoes (or redoes) the last user actions of a session, as Ctrl+Z (Ctrl+Shift+Z) does in the ABBA
+        window. One step undoes a whole command, a registration of several slices included. The atlas
+        slicing angles are not undone.
+
+        Parameters
+        ----------
+        steps : int
+            Steps. Number of actions to undo; negative to redo.
+
+        Returns
+        -------
+        Any
+            The command module, once the command has run
+        """
+        return self._run_command('ch.epfl.biop.atlas.aligner.command.UndoCommand', {
+            'mp': self.mp,
+            'steps': steps,
+        })
+
+    def wait(self, *,
+            timeout_s: float = 30.0) -> Any:
+        """
+        ABBA - Wait
+
+        Waits until the actions queued on the slices are done, at most 'timeout_s' seconds, then tells how
+        many are still pending and what failed since the previous 'ABBA - Wait'. Registration and DeepSlice
+        commands return as soon as their actions are queued, and their failures come later: follow them with
+        this command, and call it again while 'pending_actions' is above 0.
+
+        Parameters
+        ----------
+        timeout_s : float
+            Timeout (s). Longest wait, in seconds. Clients usually give up on a call after about 60 s: keep
+            it under 45, and call again while actions are pending.
+
+        Returns
+        -------
+        Any
+            The command module, once the command has run
+        """
+        return self._run_command('ch.epfl.biop.atlas.aligner.command.WaitCommand', {
+            'mp': self.mp,
+            'timeout_s': timeout_s,
         })

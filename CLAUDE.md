@@ -40,7 +40,7 @@ still works without Maven (scyjava fetches one) but fails with
 version before scyjava fetches Java. `requires-python>=3.10` because jgo ≥2.1.3
 and scyjava 1.12.5 need it (3.9 is stuck on jgo 2.1.0).
 
-Java 21 is required: the ABBA jars (0.23.x) are compiled for Java 21 (class file
+Java 21 is required: the ABBA jars (0.23.x and later) are compiled for Java 21 (class file
 version 65) and fail with `UnsupportedClassVersionError` on older JVMs. scyjava
 fetches Java 11 by default, so `configure_java()` in `abba.py` sets the version
 to `JAVA_VERSION` before every `imagej.init`.

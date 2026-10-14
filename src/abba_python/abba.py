@@ -27,14 +27,14 @@ def get_java_dependencies():
     :return:
     """
     return ['ch.epfl.biop:ijl-utilities-wrappers:0.12.1',
-            'ch.epfl.biop:ImageToAtlasRegister:0.23.1-SNAPSHOT',
-            'ch.epfl.biop:bigdataviewer-biop-tools:0.24.0',
+            'ch.epfl.biop:ImageToAtlasRegister:0.25.0',
+            'ch.epfl.biop:bigdataviewer-biop-tools:0.24.2',
             'ch.unige.biochem:scijava-introspect:0.2.0',
             'sc.fiji:bigdataviewer-playground:0.23.1',
             'sc.fiji.bigdataviewer:bigdataviewer-playground-display:0.23.1',
             'com.formdev:flatlaf:3.5.1',
-            'ch.epfl.biop:bigdataviewer-image-loaders:0.23.2',
-            'ch.epfl.biop:atlas:0.23.2'
+            'ch.epfl.biop:bigdataviewer-image-loaders:0.23.4',
+            'ch.epfl.biop:atlas:0.23.4'
             ]
 
 
