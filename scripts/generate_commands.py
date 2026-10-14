@@ -164,13 +164,17 @@ def method_code(simple_name: str, command: dict[str, Any]) -> str:
         conversion = OUTPUT_CONVERSIONS.get(outputs[0]['type'])
         if conversion:
             output_argument += f', convert={conversion}'
-    call = f"return self._run_command('{command['name']}', {{"
+    # _run_command returns Any: a typed result goes through a typed variable
+    target = 'return ' if return_type == 'Any' else f'result: {return_type} = '
+    call = f"{target}self._run_command('{command['name']}', {{"
     if entries:
         lines.append(INDENT + call)
         lines += [INDENT * 2 + entry + ',' for entry in entries]
         lines.append(INDENT + '}' + output_argument + ')')
     else:
         lines.append(INDENT + call + '}' + output_argument + ')')
+    if return_type != 'Any':
+        lines.append(INDENT + 'return result')
     return textwrap.indent('\n'.join(lines), INDENT)
 
 

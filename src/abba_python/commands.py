@@ -85,12 +85,13 @@ class AbbaCommands:
         str | None
             Report. Markdown report: configuration, time and memory per step. Also written to the ImageJ log.
         """
-        return self._run_command('ch.epfl.biop.atlas.aligner.command.ABBABenchMarkCommand', {
+        result: str | None = self._run_command('ch.epfl.biop.atlas.aligner.command.ABBABenchMarkCommand', {
             'comment': comment,
             'demo_dataset': demo_dataset,
             'use_gui': use_gui,
             'wait_between_each_step': wait_between_each_step,
         }, output='report', convert=str)
+        return result
 
     def check_for_update(self) -> Any:
         """
@@ -189,9 +190,10 @@ class AbbaCommands:
         str | None
             Prompt for the methods section. Text to copy into a large language model. Review the generated methods carefully.
         """
-        return self._run_command('ch.epfl.biop.atlas.aligner.command.ABBAGenerateMethodsPrompt', {
+        result: str | None = self._run_command('ch.epfl.biop.atlas.aligner.command.ABBAGenerateMethodsPrompt', {
             'mp': self.mp,
         }, output='llm_prompt_for_methods', convert=str)
+        return result
 
     def set_bdv_preferences(self) -> Any:
         """
@@ -242,10 +244,11 @@ class AbbaCommands:
         bool | None
             Success. True if the state was loaded.
         """
-        return self._run_command('ch.epfl.biop.atlas.aligner.command.ABBAStateLoadCommand', {
+        result: bool | None = self._run_command('ch.epfl.biop.atlas.aligner.command.ABBAStateLoadCommand', {
             'mp': self.mp,
             'state_file': state_file,
         }, output='success', convert=bool)
+        return result
 
     def state_save(self, *,
             state_file: str | os.PathLike[str]) -> bool | None:
@@ -267,10 +270,11 @@ class AbbaCommands:
         bool | None
             Success. True if the state was saved.
         """
-        return self._run_command('ch.epfl.biop.atlas.aligner.command.ABBAStateSaveCommand', {
+        result: bool | None = self._run_command('ch.epfl.biop.atlas.aligner.command.ABBAStateSaveCommand', {
             'mp': self.mp,
             'state_file': state_file,
         }, output='success', convert=bool)
+        return result
 
     def user_feedback(self) -> Any:
         """
@@ -318,13 +322,14 @@ class AbbaCommands:
         str | None
             Display ranges. The ranges set: per channel, or per slice and channel.
         """
-        return self._run_command('ch.epfl.biop.atlas.aligner.command.AutoDisplayRangeCommand', {
+        result: str | None = self._run_command('ch.epfl.biop.atlas.aligner.command.AutoDisplayRangeCommand', {
             'mp': self.mp,
             'high_percentile': high_percentile,
             'low_percentile': low_percentile,
             'same_range_for_all_slices': same_range_for_all_slices,
             'slice_channels_csv': slice_channels_csv,
         }, output='display_ranges', convert=str)
+        return result
 
     def deepslice_documentation(self) -> Any:
         """
@@ -895,7 +900,7 @@ class AbbaCommands:
         bool | None
             Success. True if the zip was created.
         """
-        return self._run_command('ch.epfl.biop.atlas.aligner.command.ExportStdZipStateCommand', {
+        result: bool | None = self._run_command('ch.epfl.biop.atlas.aligner.command.ExportStdZipStateCommand', {
             'mp': self.mp,
             'experiment_information': experiment_information,
             'identifier': identifier,
@@ -904,6 +909,7 @@ class AbbaCommands:
             'pixel_size_um': pixel_size_um,
             'slice_channels_csv': slice_channels_csv,
         }, output='success', convert=bool)
+        return result
 
     def get_state(self, *,
             full: bool = False,
@@ -944,13 +950,14 @@ class AbbaCommands:
         str | None
             State. The state, as JSON.
         """
-        return self._run_command('ch.epfl.biop.atlas.aligner.command.GetStateCommand', {
+        result: str | None = self._run_command('ch.epfl.biop.atlas.aligner.command.GetStateCommand', {
             'mp': self.mp,
             'full': full,
             'max_string_length': max_string_length,
             'slices_csv': slices_csv,
             'timeout_s': timeout_s,
         }, output='state', convert=str)
+        return result
 
     def import_demo_slices_omero(self, *,
             demo_dataset: Literal['25 sections', '97 sections'],
@@ -1853,11 +1860,12 @@ class AbbaCommands:
         str | None
             Angles. The angles now in use, in degrees.
         """
-        return self._run_command('ch.epfl.biop.atlas.aligner.command.SetAtlasSlicingAnglesCommand', {
+        result: str | None = self._run_command('ch.epfl.biop.atlas.aligner.command.SetAtlasSlicingAnglesCommand', {
             'mp': self.mp,
             'x_degrees': x_degrees,
             'y_degrees': y_degrees,
         }, output='angles', convert=str)
+        return result
 
     def set_key_slices(self, *,
             key: bool = True,
@@ -1910,10 +1918,11 @@ class AbbaCommands:
         str | None
             Region of interest (mm). The region now in use: x,y,width,height in mm.
         """
-        return self._run_command('ch.epfl.biop.atlas.aligner.command.SetRegionOfInterestCommand', {
+        result: str | None = self._run_command('ch.epfl.biop.atlas.aligner.command.SetRegionOfInterestCommand', {
             'mp': self.mp,
             'region_mm': region_mm,
         }, output='roi_mm', convert=str)
+        return result
 
     def set_slices_background(self, *,
             white_background_value: int = 255) -> Any:

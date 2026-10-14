@@ -12,14 +12,15 @@ import imagej
 # JPype
 from jpype.types import JString, JArray
 #
-from typing import Literal
+from collections.abc import Iterable, Sequence
+from typing import Any, ClassVar, Literal
 
 from .commands import AbbaCommands
 
 LogLevel = Literal['OFF', 'DEBUG', 'INFO']
 
 
-def get_java_dependencies():
+def get_java_dependencies() -> list[str]:
     """
     Returns the jar files that need to be included into the classpath
     of an imagej object in order to have a functional ABBA app
@@ -42,7 +43,7 @@ def get_java_dependencies():
 JAVA_VERSION = '21'
 
 
-def configure_java():
+def configure_java() -> None:
     """
     Makes scyjava start the JVM with the Java version required by ABBA's jars
     (scyjava fetches Java 11 by default). Has no effect once the JVM is started.
@@ -57,7 +58,7 @@ def configure_java():
 
 
 def start_imagej(headless: bool = False,
-                 log_level: LogLevel = 'INFO'):
+                 log_level: LogLevel = 'INFO') -> None:
     mode = "headless"
     if not headless:
         mode = "interactive"
@@ -132,19 +133,19 @@ class Abba(AbbaCommands):
 
     """
 
-    opened_atlases: dict = {}
+    opened_atlases: ClassVar[dict[str, Any]] = {}
 
     def __init__(
             self,
             atlas_name: str = 'Adult Mouse Brain - Allen Brain Atlas V3p1',
-            ij=None,
+            ij: Any = None,
             x_axis: str = 'RL',
             y_axis: str = 'SI',
             z_axis: str = 'AP',
             headless: bool = False,
             print_config: bool = True,
             log_level: LogLevel = 'INFO'
-    ):
+    ) -> None:
         if ij is None:
             configure_java()
             if headless:
@@ -223,14 +224,14 @@ class Abba(AbbaCommands):
                                    'ba', self.atlas
                                    ).get().getOutput('mp')
 
-    def print_config(self):
+    def print_config(self) -> None:
         # Displays some config information
         print('- Main Java Dependencies:')
         print(get_java_dependencies())
         print('- Atlas cache folder:')
         print(self.get_atlas_cache_dir())
 
-    def set_atlas_cache_dir(self, atlas_dir: str):
+    def set_atlas_cache_dir(self, atlas_dir: str) -> None:
         File = jimport('java.io.File')
         AtlasLocationHelper = jimport('ch.epfl.biop.atlas.AtlasLocationHelper')
         AtlasLocationHelper.defaultCacheDir = File(JString(atlas_dir))
@@ -239,7 +240,7 @@ class Abba(AbbaCommands):
         AtlasLocationHelper = jimport('ch.epfl.biop.atlas.AtlasLocationHelper')
         return str(AtlasLocationHelper.getAtlasCacheDir())
 
-    def get_ij(self):
+    def get_ij(self) -> Any:
         """
         Provides the ImageJ instance that can be reused to create another Abba instance
         :return:
@@ -247,7 +248,7 @@ class Abba(AbbaCommands):
         """
         return self.ij
 
-    def show_bdv_ui(self, blocking_messages: bool = True):
+    def show_bdv_ui(self, blocking_messages: bool = True) -> None:
         """
         Creates and show a BigDataViewer view over this Abba instance
 
@@ -267,12 +268,12 @@ class Abba(AbbaCommands):
             # We need to create the view in the Java UI thread
             @JImplements(Runnable)
             class BdvViewGetter:
-                def __init__(self, mp):
-                    self.bdv_view = None
+                def __init__(self, mp: Any) -> None:
+                    self.bdv_view: Any = None
                     self.mp = mp
 
-                @JOverride
-                def run(self):
+                @JOverride  # type: ignore[untyped-decorator]  # jpype has no types
+                def run(self) -> None:
                     DefaultBdvSupplier = jimport('sc.fiji.bdvpg.viewer.bdv.supplier.DefaultBdvSupplier')
                     SerializableBdvOptions = jimport('sc.fiji.bdvpg.viewer.bdv.supplier.SerializableBdvOptions')
                     BdvMultislicePositionerView = jimport(
@@ -286,7 +287,7 @@ class Abba(AbbaCommands):
                     bdvh = DefaultBdvSupplier(SerializableBdvOptions()).get()
                     self.bdv_view = BdvMultislicePositionerView(self.mp, bdvh)
 
-                def get_bdv_view(self):
+                def get_bdv_view(self) -> Any:
                     return self.bdv_view
 
             bdv_view_getter = BdvViewGetter(self.mp)
@@ -300,11 +301,12 @@ class Abba(AbbaCommands):
             # TODO: make sure it is visible
             pass
 
-    def get_bdv_view(self):
+    def get_bdv_view(self) -> Any:
         return self.bdv_view
 
     # ------------------------ IMPORT
-    def import_from_files(self, filepaths, z_location=0, z_increment=0.02, split_rgb=False):
+    def import_from_files(self, filepaths: Sequence[str | os.PathLike[str]], z_location: float = 0,
+                          z_increment: float = 0.02, split_rgb: bool = False) -> Any:
         """
 
         :param z_location:
@@ -318,8 +320,7 @@ class Abba(AbbaCommands):
         :param filepaths:
             file paths of the image to import. Each file should be readable by bio-formats
         :return:
-            a Future object: if you call .get(), the request will wait to be finished. If not, the import
-            files command is executed asynchronously
+            the import command module, once the command has run
         """
         # Let's import the files using Bio-Formats.
         # The list of all commands is accessible here:
@@ -334,7 +335,7 @@ class Abba(AbbaCommands):
         files = FileArray(len(filepaths))
         i = 0
         for filepath in filepaths:
-            file = File(filepath)
+            file = File(os.fspath(filepath))
             files[i] = file
             i = i + 1
 
@@ -349,23 +350,23 @@ class Abba(AbbaCommands):
                                      ).get()
 
     # ------------------------ SLICE SELECTION
-    def select_all_slices(self):
+    def select_all_slices(self) -> None:
         self.mp.selectSlice(self.mp.getSlices())  # select all
 
-    def deselect_all_slices(self):
+    def deselect_all_slices(self) -> None:
         self.mp.deselectSlice(self.mp.getSlices())  # select all
 
-    def get_n_slices(self):
-        return self.mp.getSlices().size()
+    def get_n_slices(self) -> int:
+        return int(self.mp.getSlices().size())
 
-    def select_slices(self, indices):
+    def select_slices(self, indices: Iterable[int]) -> None:
         for index in indices:
             self.mp.selectSlice(self.mp.getSlices().get(index))  # select the last slice
 
-    def change_display_settings(self, channel_index: int, range_min: float, range_max: float):
+    def change_display_settings(self, channel_index: int, range_min: float, range_max: float) -> None:
         for abba_slice in self.mp.getSlices():
             if abba_slice.isSelected():
                 abba_slice.setDisplayRange(channel_index, range_min, range_max)
 
-    def wait_for_end_of_tasks(self):
+    def wait_for_end_of_tasks(self) -> None:
         self.mp.waitForTasks()
