@@ -384,8 +384,7 @@ class AbbaCommands:
         Adds the atlas regions of each selected slice to the ImageJ ROI Manager, as ROIs in the pixel
         coordinates of the original (unregistered, full resolution) slice image.
 
-        Some defaults or choices are computed when the command opens, from the session: see
-        AbbaAgent.get_command_parameters.
+        Some defaults or choices are computed from the session when the command opens.
 
         Parameters
         ----------
@@ -413,8 +412,7 @@ class AbbaCommands:
         Saves the atlas regions of each selected slice as an ImageJ ROI set zip file, named after the slice,
         with ROIs in the pixel coordinates of the original (unregistered, full resolution) slice image.
 
-        Some defaults or choices are computed when the command opens, from the session: see
-        AbbaAgent.get_command_parameters.
+        Some defaults or choices are computed from the session when the command opens.
 
         Parameters
         ----------
@@ -653,8 +651,7 @@ class AbbaCommands:
         at the given pixel size within the current region of interest, optionally with the atlas regions as
         overlay. Same geometry as 'Export Atlas to ImageJ'.
 
-        Some defaults or choices are computed when the command opens, from the session: see
-        AbbaAgent.get_command_parameters.
+        Some defaults or choices are computed from the session when the command opens.
 
         Parameters
         ----------
@@ -1235,8 +1232,7 @@ class AbbaCommands:
         Dialog message: Don't forget to adjust min/max display settings! Almost 50% of images sent by ABBA
         users to DeepSlice are over-saturated. (and thus, badly registered)
 
-        Some defaults or choices are computed when the command opens, from the session: see
-        AbbaAgent.get_command_parameters.
+        Some defaults or choices are computed from the session when the command opens.
 
         Parameters
         ----------
@@ -1302,8 +1298,7 @@ class AbbaCommands:
         Dialog message: Don't forget to adjust min/max display settings! Almost 50% of images sent by ABBA
         users to DeepSlice are over-saturated. (and thus, badly registered)
 
-        Some defaults or choices are computed when the command opens, from the session: see
-        AbbaAgent.get_command_parameters.
+        Some defaults or choices are computed from the session when the command opens.
 
         Parameters
         ----------
@@ -1366,8 +1361,7 @@ class AbbaCommands:
         Dialog message: Don't forget to adjust min/max display settings! Almost 50% of images sent by ABBA
         users to DeepSlice are over-saturated. (and thus, badly registered)
 
-        Some defaults or choices are computed when the command opens, from the session: see
-        AbbaAgent.get_command_parameters.
+        Some defaults or choices are computed from the session when the command opens.
 
         Parameters
         ----------

@@ -9,11 +9,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 logic lives in this repo — the heavy lifting is in Java jars pulled from Maven
 (`maven.scijava.org`) at runtime. The Python layer has essentially one job: boot a
 PyImageJ/ImageJ instance with the right classpath and expose ABBA's SciJava commands
-as ergonomic Python methods (`Abba` class in `abba.py`). Three modules:
+as ergonomic Python methods (`Abba` class in `abba.py`). Two modules:
 - `abba.py` — JVM startup and the `Abba` session (atlas, model, a few helpers);
-- `commands.py` — `AbbaCommands`, the generated command methods `Abba` inherits;
-- `agent.py` — `AbbaAgent(abba)`, the API for programs such as LLM agents: state as
-  JSON, JSON actions with undo, snapshots, command and parameter discovery.
+- `commands.py` — `AbbaCommands`, the generated command methods `Abba` inherits.
+
+An MCP server for LLM agents used to live here; it was dropped in favour of a standalone
+server on the Java side, so there is no agent API in this package any more.
 
 Historically this package also bridged [BrainGlobe](https://brainglobe.info) atlases
 into ABBA by implementing ABBA's Java atlas interfaces *in Python* (JPype proxies).
@@ -84,11 +85,10 @@ Two entry points create the JVM (both call `configure_java()` first):
 
 ### `Abba` command methods are generated
 
-`commands.py` and `command_metadata.py` are **generated, never edited by hand**: run
+`commands.py` is **generated, never edited by hand**: run
 `python scripts/generate_commands.py` after bumping the jars. The script starts the
 JVM with `get_java_dependencies()` and describes the SciJava commands of
-`ch.epfl.biop.atlas.aligner.command` (and the registration commands of
-`ch.epfl.biop.command.register`) with scijava-introspect. Each ABBA command becomes a
+`ch.epfl.biop.atlas.aligner.command` with scijava-introspect. Each ABBA command becomes a
 method of `AbbaCommands` (inherited by `Abba`) that calls
 `self._run_command(class_name, {'mp': self.mp, ...})`; `self.mp` is the
 "multipositioner" model object every command operates on. Generation rules, all in the
@@ -105,9 +105,8 @@ Behaviour a rule cannot express belongs in the Java command, not in hand edits. 
 missing required input would make ABBA pop up a Swing dialog asking the user for it.
 
 Defaults and choices computed in a command's `initialize()` (ontology keys of
-`naming_choice`, DeepSlice pixel size) are not in the generated code:
-`AbbaAgent.get_command_parameters` gets them at runtime from scijava-introspect's
-`describeInitialized`, which creates and initializes the command without running it.
+`naming_choice`, DeepSlice pixel size) are not in the generated code; the docstring of
+such a method says so.
 
 ### Atlas loading (`Abba.__init__`)
 
