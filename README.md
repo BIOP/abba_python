@@ -16,50 +16,16 @@ Aligning Big Brains & Atlases, abbreviated as ABBA, allows you to register thin 
 
 With ABBA Python, you can control the ABBA API from Python.
 
-> [!WARNING]
-> Due to some threading issues, the GUI does not work with macOS. On macOS, use the regular [Fiji](https://fiji.sc) installation of ABBA instead — it already includes access to all BrainGlobe atlases.
-
-# Requirements
-
-`abba-python` is a thin Python wrapper around the Java ABBA application. The only thing you need on your machine is **Python 3.10 or later** (tested up to 3.14).
-
-You do **not** need to install Java or Maven: on the first run, [PyImageJ](https://pyimagej.readthedocs.io)/scyjava downloads a Java 21 runtime and the ABBA jars (a few hundred MB) by itself, and caches them for the next runs.
-
-The automated registration tools (elastix/transformix, local DeepSlice) and BrainGlobe atlas downloads are handled by ABBA itself: it provisions its own isolated Python environments on demand (via [Appose](https://github.com/apposed/appose)). You do **not** need to install elastix, DeepSlice or `brainglobe-atlasapi` yourself.
-
 # Installation
 
-## With pixi (recommended)
-
-[pixi](https://pixi.sh) is a modern, lockfile-based package manager:
-
 ```
-pixi init abba-project
-cd abba-project
-pixi add python=3.13
-pixi add --pypi abba-python
-```
-
-Run Python inside the project with `pixi run python` (or `pixi shell` to activate the environment).
-
-## With conda / mamba
-
-Using [miniforge](https://github.com/conda-forge/miniforge):
-
-```
-mamba create -c conda-forge -n abba-env python=3.13 pip
-mamba activate abba-env
 pip install abba-python
 ```
 
-## With uv or pip
-
-Since no Java or Maven installation is needed, a plain virtual environment works too, e.g. with [uv](https://docs.astral.sh/uv):
-
-```
-uv venv --python 3.13
-uv pip install abba-python
-```
+You need Python 3.10 or later, nothing else: Java and ABBA are downloaded on the first run. pixi and conda,
+the limitations on macOS (ABBA's window does not work when started from Python) and the other ways to get ABBA
+(in Fiji, with the ABBA installer, with an AI assistant) are on the
+[installation page](https://abba-documentation.readthedocs.io/en/stable/installation/installation.html#install-python).
 
 # Getting started
 
