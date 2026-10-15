@@ -27,7 +27,7 @@ subprocess env), so that bridge and the `brainglobe-atlasapi` dependency were re
 No JDK or Maven install is needed — a plain venv works (conda is fine too):
 
 ```
-uv venv --python 3.12
+uv venv --python 3.13
 uv pip install -e .[test,dev]
 ```
 

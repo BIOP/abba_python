@@ -1,10 +1,10 @@
 # abba-python
 
-[![License](https://img.shields.io/pypi/l/abba-python.svg?color=green)](https://github.com/BIOP/abba-python/raw/main/LICENSE)
+[![License](https://img.shields.io/pypi/l/abba-python.svg?color=green)](https://github.com/BIOP/abba_python/raw/main/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/abba-python.svg?color=green)](https://pypi.org/project/abba-python)
 [![Python Version](https://img.shields.io/pypi/pyversions/abba-python.svg?color=green)](https://python.org)
-[![CI](https://github.com/BIOP/abba_python/actions/workflows/ci.yml/badge.svg)](https://github.com/BIOP/abba-python/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/BIOP/abba-python/branch/main/graph/badge.svg)](https://codecov.io/gh/BIOP/abba-python)
+[![CI](https://github.com/BIOP/abba_python/actions/workflows/ci.yml/badge.svg)](https://github.com/BIOP/abba_python/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/BIOP/abba_python/branch/main/graph/badge.svg)](https://codecov.io/gh/BIOP/abba_python)
 
 Aligning Big Brains and Atlases (ABBA), controlled from python.
 
@@ -21,7 +21,7 @@ With ABBA Python, you can control the ABBA API from Python.
 
 # Requirements
 
-`abba-python` is a thin Python wrapper around the Java ABBA application. The only thing you need on your machine is **Python 3.10–3.12**.
+`abba-python` is a thin Python wrapper around the Java ABBA application. The only thing you need on your machine is **Python 3.10 or later** (tested up to 3.14).
 
 You do **not** need to install Java or Maven: on the first run, [PyImageJ](https://pyimagej.readthedocs.io)/scyjava downloads a Java 21 runtime and the ABBA jars (a few hundred MB) by itself, and caches them for the next runs.
 
@@ -36,7 +36,7 @@ The automated registration tools (elastix/transformix, local DeepSlice) and Brai
 ```
 pixi init abba-project
 cd abba-project
-pixi add python=3.12
+pixi add python=3.13
 pixi add --pypi abba-python
 ```
 
@@ -47,7 +47,7 @@ Run Python inside the project with `pixi run python` (or `pixi shell` to activat
 Using [miniforge](https://github.com/conda-forge/miniforge):
 
 ```
-mamba create -c conda-forge -n abba-env python=3.12 pip
+mamba create -c conda-forge -n abba-env python=3.13 pip
 mamba activate abba-env
 pip install abba-python
 ```
@@ -57,7 +57,7 @@ pip install abba-python
 Since no Java or Maven installation is needed, a plain virtual environment works too, e.g. with [uv](https://docs.astral.sh/uv):
 
 ```
-uv venv --python 3.12
+uv venv --python 3.13
 uv pip install abba-python
 ```
 
@@ -93,6 +93,8 @@ Every ABBA command is a method of `Abba`, with keyword arguments: for example
 method's docstring describes them (`help(Abba.distribute_slices)`). A parameter without default must be given:
 otherwise ABBA asks for it in a dialog.
 
+See the [`examples/`](examples) folder for runnable scripts (`demo_brainglobe.py`, `demo_api.py`, `demo_bench.py`, `demo_gui.py`).
+
 ## Extra Java dependencies
 
 `start_imagej()` and `Abba()` take `extra_dependencies`: more jars, as Maven coordinates, put on the
@@ -112,8 +114,6 @@ The libraries they share with ABBA get the versions ABBA is built with, so that 
 A jar that needs another version of one of them has to pin it, as above: fiji-llm 0.1.0 needs
 Jetty 11, and ABBA's versions would give it Jetty 9 (`NoClassDefFoundError: jakarta/servlet/Servlet`).
 The first run downloads the extra jars; ABBA without `extra_dependencies` is not affected.
-
-See the [`examples/`](examples) folder for runnable scripts (`demo_brainglobe.py`, `demo_api.py`, `demo_bench.py`, `demo_gui.py`).
 
 ## Jupyter lab
 

@@ -30,6 +30,8 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Typing :: Typed",
 ]
 # add your package dependencies here
@@ -56,8 +58,8 @@ dev = [
 ]
 
 [project.urls]
-homepage = "https://github.com/BIOP/abba-python"
-repository = "https://github.com/BIOP/abba-python"
+homepage = "https://github.com/BIOP/abba_python"
+repository = "https://github.com/BIOP/abba_python"
 
 # Entry points
 # https://peps.python.org/pep-0621/#entry-points
