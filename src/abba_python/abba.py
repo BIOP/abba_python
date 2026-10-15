@@ -22,13 +22,16 @@ def get_java_dependencies() -> list[str]:
     these jars should be available in https://maven.scijava.org/
     :return:
     """
-    return ['ch.epfl.biop:ijl-utilities-wrappers:0.12.1',
-            'ch.epfl.biop:ImageToAtlasRegister:0.25.0',
+    # ImageToAtlasRegister first: jgo imports the version management of every coordinate, and
+    # the first one wins (scyjava sorts all but the first). This one manages the versions ABBA
+    # is built with; first, an older coordinate would bring older imglib2, bdv-core...
+    return ['ch.epfl.biop:ImageToAtlasRegister:0.25.0',
+            'ch.epfl.biop:ijl-utilities-wrappers:0.12.1',
             'ch.epfl.biop:bigdataviewer-biop-tools:0.24.2',
             'ch.unige.biochem:scijava-introspect:0.2.0',
             'sc.fiji:bigdataviewer-playground:0.23.1',
             'sc.fiji.bigdataviewer:bigdataviewer-playground-display:0.23.1',
-            'com.formdev:flatlaf:3.5.1',
+            'com.formdev:flatlaf:3.6.1',  # as pom-scijava 45.1.0, the parent of ImageToAtlasRegister 0.25.0
             'ch.epfl.biop:bigdataviewer-image-loaders:0.23.4',
             'ch.epfl.biop:atlas:0.23.4'
             ]

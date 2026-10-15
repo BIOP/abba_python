@@ -78,6 +78,16 @@ compatible; a mismatch surfaces only at runtime as Java `NoSuchMethodError`/link
 errors, not at install. If a bump raises the Java bytecode level, also bump
 `JAVA_VERSION` next to it (otherwise: `UnsupportedClassVersionError` at startup).
 
+**Order matters: `ImageToAtlasRegister` stays first.** jgo writes one pom with every
+coordinate as a dependency and as an imported BOM, and the first import wins (scyjava
+keeps the first coordinate and sorts the others). Only transitive versions are managed
+that way, so the other pins are taken from the `ImageToAtlasRegister` pom of the release
+(its `*.version` properties) and flatlaf from its pom-scijava parent. With an older
+coordinate first, the classpath silently differed from the one ABBA is built with
+(imglib2 7.1.5 instead of 8.0.0, older bdv-core and scijava-common). To check a bump,
+compare the jars in `~/.jgo/envs/ch/epfl/biop/ImageToAtlasRegister/<hash>/modules` with
+those versions.
+
 Two entry points create the JVM (both call `configure_java()` first):
 - `start_imagej()` — launches Fiji with the full ABBA GUI (sets the Windows atlas
   cache dir under `%ProgramData%/abba-atlas`). BrainGlobe atlas discovery for the GUI
