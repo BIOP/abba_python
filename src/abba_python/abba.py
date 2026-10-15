@@ -55,20 +55,33 @@ def configure_java() -> None:
     scyjava.config.set_java_constraints(version=JAVA_VERSION)
 
 
+def _dependencies(extra_dependencies: Sequence[str]) -> list[str]:
+    """
+    ABBA's dependencies followed by the extra ones. After, not before: the first coordinate
+    decides the versions of the transitive dependencies (see get_java_dependencies)
+    """
+    if isinstance(extra_dependencies, str):
+        raise TypeError("extra_dependencies is a list of 'group:artifact:version', not a string")
+    return get_java_dependencies() + list(extra_dependencies)
+
+
 def start_imagej(headless: bool = False,
-                 log_level: LogLevel = 'INFO') -> Any:
+                 log_level: LogLevel = 'INFO',
+                 extra_dependencies: Sequence[str] = ()) -> Any:
     """
     Starts Fiji with the full ABBA GUI (the ABBA commands in the menus), instead of an Abba object
 
     :param headless: starts without any window
     :param log_level: logging level of Bio-Formats
+    :param extra_dependencies: more jars, as Maven coordinates 'group:artifact:version'
+        (e.g. ['sc.fiji:fiji-llm:0.1.0']), resolved with the versions ABBA is built with
     :return: the ImageJ instance, which can be passed to Abba to share its JVM
     """
     mode = "headless"
     if not headless:
         mode = "interactive"
     configure_java()
-    ij = imagej.init(get_java_dependencies(), mode=mode)
+    ij = imagej.init(_dependencies(extra_dependencies), mode=mode)
 
     from jpype.types import JString
     from scyjava import jimport
@@ -139,6 +152,9 @@ class Abba(AbbaCommands):
         should be 'AP', 'PA', 'LR', 'RL', 'DV', 'VD'
     log_level :
         should be taken within LogLevel literal
+    extra_dependencies :
+        more jars, as Maven coordinates 'group:artifact:version' (e.g. ['sc.fiji:fiji-llm:0.1.0']),
+        resolved with the versions ABBA is built with. Ignored when ij is given
 
     """
 
@@ -153,18 +169,22 @@ class Abba(AbbaCommands):
             z_axis: str = 'AP',
             headless: bool = False,
             print_config: bool = True,
-            log_level: LogLevel = 'INFO'
+            log_level: LogLevel = 'INFO',
+            extra_dependencies: Sequence[str] = ()
     ) -> None:
+        self.extra_dependencies = list(extra_dependencies)
         if ij is None:
             configure_java()
             if headless:
-                ij = imagej.init(get_java_dependencies())
+                ij = imagej.init(_dependencies(extra_dependencies))
             else:
-                ij = imagej.init(get_java_dependencies(), mode='interactive')
+                ij = imagej.init(_dependencies(extra_dependencies), mode='interactive')
                 ij.ui().showUI()
             self.ij = ij
         else:
-            print('ij was provided, headless argument ignored')
+            ignored = 'headless and extra_dependencies arguments' if extra_dependencies else 'headless argument'
+            print(f'ij was provided, {ignored} ignored')
+            self.extra_dependencies = []
             self.ij = ij
 
         # Look in object service to see if the atlas is not already opened by any chance
@@ -237,6 +257,9 @@ class Abba(AbbaCommands):
         """Prints the Java dependencies and the atlas cache folder"""
         print('- Main Java Dependencies:')
         print(get_java_dependencies())
+        if self.extra_dependencies:
+            print('- Extra Java Dependencies:')
+            print(self.extra_dependencies)
         print('- Atlas cache folder:')
         print(self.get_atlas_cache_dir())
 

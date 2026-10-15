@@ -61,8 +61,8 @@ while linking jars: the paths exceed 260 characters. The default `~/.jgo` is fin
 - Manual smoke tests (need a full conda env + display): the scripts in `examples/`
   (`demo_api.py`, `demo_gui.py`, `demo_bench.py`).
 
-Note: the test suite (`tests/`) is a placeholder and does **not** exercise the JVM
-or ABBA itself. CI verifies install/import across OS × Python only. Real validation
+Note: the test suite (`tests/`) does **not** exercise the JVM or ABBA itself: it only
+checks what runs without Java (the order of the dependencies). CI verifies install/import across OS × Python only. Real validation
 is manual via the `examples/` scripts. `filterwarnings = ["error"]` is set, so any
 warning fails the test run.
 
@@ -87,6 +87,11 @@ coordinate first, the classpath silently differed from the one ABBA is built wit
 (imglib2 7.1.5 instead of 8.0.0, older bdv-core and scijava-common). To check a bump,
 compare the jars in `~/.jgo/envs/ch/epfl/biop/ImageToAtlasRegister/<hash>/modules` with
 those versions.
+
+`extra_dependencies` (of `start_imagej` and `Abba`) are appended by `_dependencies`, after
+ABBA's, for that reason. The flip side: a shared library an extra jar overrides in its own
+pom falls back to ABBA's version, and the user must pin it (fiji-llm 0.1.0 overrides
+`jetty.version` to 11.0.20 against pom-scijava's 9.4.58; see the README example).
 
 Two entry points create the JVM (both call `configure_java()` first):
 - `start_imagej()` — launches Fiji with the full ABBA GUI (sets the Windows atlas

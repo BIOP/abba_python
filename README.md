@@ -93,6 +93,26 @@ Every ABBA command is a method of `Abba`, with keyword arguments: for example
 method's docstring describes them (`help(Abba.distribute_slices)`). A parameter without default must be given:
 otherwise ABBA asks for it in a dialog.
 
+## Extra Java dependencies
+
+`start_imagej()` and `Abba()` take `extra_dependencies`: more jars, as Maven coordinates, put on the
+classpath next to ABBA's. For example, [fiji-llm](https://github.com/fiji/fiji-llm) (the LLM assistant
+and MCP server of Fiji) and [fiji-modules](https://github.com/unige-biochem/fiji-modules):
+
+```python
+from abba_python import abba
+
+JETTY_11 = [f'org.eclipse.jetty:jetty-{module}:11.0.20'
+            for module in ('server', 'servlet', 'util', 'http', 'io', 'security')]
+ij = abba.start_imagej(extra_dependencies=['sc.fiji:fiji-llm:0.1.0',
+                                           'ch.unige.biochem:fiji-modules:0.1.2', *JETTY_11])
+```
+
+The libraries they share with ABBA get the versions ABBA is built with, so that ABBA keeps working.
+A jar that needs another version of one of them has to pin it, as above: fiji-llm 0.1.0 needs
+Jetty 11, and ABBA's versions would give it Jetty 9 (`NoClassDefFoundError: jakarta/servlet/Servlet`).
+The first run downloads the extra jars; ABBA without `extra_dependencies` is not affected.
+
 See the [`examples/`](examples) folder for runnable scripts (`demo_brainglobe.py`, `demo_api.py`, `demo_bench.py`, `demo_gui.py`).
 
 ## Jupyter lab
